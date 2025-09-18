@@ -1,0 +1,361 @@
+/* Import sporty + clean fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;500&display=swap');
+
+/* Apply clean Roboto to all body text */
+body {
+    font-family: 'Roboto', sans-serif;
+    text-align: center;
+    margin-top: 20px;
+    background-color: #f8f9fa; /* optional: light background */
+    color: #222; /* dark text for contrast */
+}
+
+/* Make the heading bold and sporty */
+h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 2.5rem;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-align: center;
+    color: #333;
+}
+
+h2 {
+    text-align: center;
+    color: #666;
+    margin: 0 0 20px 0;
+    font-size: 1.2rem;
+    font-weight: normal;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Style labels and dropdowns */
+label {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    margin: 0 10px;
+    display: inline-block;
+    min-width: 80px;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+select {
+    font-family: 'Roboto', sans-serif;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    margin: 0 15px 20px 0;
+    min-width: 200px;
+    background-color: white;
+    cursor: pointer;
+}
+
+select:hover {
+    border-color: #007bff;
+}
+
+select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Player selection container */
+.player-selection {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* Players container */
+.players-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: nowrap;
+}
+
+.player-input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-input-group label {
+    margin: 0;
+    min-width: auto;
+}
+
+.autocomplete-container {
+    position: relative;
+    width: 250px;
+}
+
+.autocomplete-container input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    cursor: text;
+    box-sizing: border-box;
+}
+
+.dropdown-arrow {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    padding: 2px;
+    z-index: 10;
+}
+
+.dropdown-arrow:hover {
+    color: #007bff;
+}
+
+/* Ensure autocomplete container has proper positioning for dropdowns */
+.autocomplete-container {
+    position: relative !important;
+}
+
+/* Dropdown menu styling */
+.dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    border: 1px solid #ccc !important;
+    border-top: none !important;
+    border-radius: 0 0 5px 5px !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    z-index: 1000 !important;
+    display: none !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    margin-top: 2px !important;
+}
+
+.dropdown-menu.show {
+    display: block !important;
+}
+
+.dropdown-menu .dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-menu .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.player-input-group input:hover,
+.player-input-group input:focus {
+    border-color: #007bff;
+}
+
+.player-input-group input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Add player button */
+.add-player-btn {
+    background-color: #6c757d;
+    color: white;
+    border: 1px solid #495057;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    align-self: flex-start;
+    margin-top: 27px;
+}
+
+.add-player-btn:hover {
+    background-color: #495057;
+}
+
+.add-player-btn:disabled {
+    background-color: #adb5bd;
+    cursor: not-allowed;
+}
+
+/* Additional players container */
+#additional-players {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+}
+
+/* Remove player button */
+.remove-player-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.remove-player-btn:hover {
+    background-color: #c82333;
+}
+
+/* Charts container */
+.charts-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 40px;
+    margin: 20px auto;
+    max-width: 900px;
+}
+
+/* Radar chart */
+canvas#radarChart {
+    max-width: 400px;
+    max-height: 400px;
+    flex-shrink: 0;
+}
+
+/* Player table container */
+.player-table-container {
+    flex-shrink: 0;
+}
+
+.player-table-container h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* Player table styling */
+.player-table {
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    min-width: 300px;
+}
+
+.player-table th {
+    background-color: #f8f9fa;
+    padding: 12px 16px;
+    text-align: center;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.player-table td {
+    padding: 10px 16px;
+    text-align: center;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.player-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.player-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Player column colors */
+.player-table th:nth-child(2),
+.player-table td:nth-child(2) {
+    color: #007bff; /* Player 1 - Blue */
+}
+
+.player-table th:nth-child(3),
+.player-table td:nth-child(3) {
+    color: #dc3545; /* Player 2 - Red */
+}
+
+.player-table th:nth-child(4),
+.player-table td:nth-child(4) {
+    color: #28a745; /* Player 3 - Green */
+}
+
+.player-table th:nth-child(5),
+.player-table td:nth-child(5) {
+    color: #ffc107; /* Player 4 - Yellow */
+}
+
+/* Tooltip styling for table stats */
+.player-table td:first-child,
+.player-table .stat-label {
+    cursor: default;
+    position: relative;
+}
+
+/* Removed custom CSS tooltip for stat labels to avoid duplicate with native title tooltip */
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Radar chart axis label tooltips */
+canvas#radarChart {
+    cursor: default;
+}
+
+/* Simple positioned tooltip for radar chart */
+#radarTooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -120%);
+    z-index: 1000;
+    display: none;
+}
+
+#radarTooltip.show {
+    display: block;
+}

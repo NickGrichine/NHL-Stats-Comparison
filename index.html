@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>NHL Radar Chart Comparison</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <h1>Top 100 NHL Players Comparison</h1>
+  <h2>2024-2025 Regular Season</h2>
+
+
+  <div class="player-selection">
+    <div class="players-container">
+      <div class="player-input-group">
+        <label for="player1">Player 1:</label>
+        <div class="autocomplete-container">
+          <input type="text" id="player1" placeholder="Type to search or click arrow" autocomplete="off" spellcheck="false">
+          <button type="button" class="dropdown-arrow" onclick="toggleDropdown('player1')">▼</button>
+          <div class="dropdown-menu" id="dropdown1">
+            <!-- Options will be populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <div class="player-input-group">
+        <label for="player2">Player 2:</label>
+        <div class="autocomplete-container">
+          <input type="text" id="player2" placeholder="Type to search or click arrow..." autocomplete="off" spellcheck="false">
+          <button type="button" class="dropdown-arrow" onclick="toggleDropdown('player2')">▼</button>
+          <div class="dropdown-menu" id="dropdown2">
+            <!-- Options will be populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+      
+      <div id="additional-players">
+        <!-- Additional players will be added here -->
+      </div>
+    </div>
+    
+    <button type="button" class="add-player-btn" onclick="addPlayer()" id="addPlayerBtn">+</button>
+  </div>
+
+  <div class="charts-container">
+    <div class="radar-chart-container">
+      <canvas id="radarChart" width="400" height="400"></canvas>
+      <div id="radarTooltip" class="radar-tooltip"></div>
+    </div>
+    <div class="player-table-container">
+      <h3>Player Statistics</h3>
+      <table id="playerTable" class="player-table">
+        <thead>
+          <tr>
+            <th>Stat</th>
+            <th>Player 1</th>
+            <th>Player 2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Team</td>
+            <td id="p1-Team">-</td>
+            <td id="p2-Team">-</td>
+          </tr>
+          <tr>
+            <td>Position</td>
+            <td id="p1-Pos">-</td>
+            <td id="p2-Pos">-</td>
+          </tr>
+          <tr>
+            <td>GP</td>
+            <td id="p1-GP">-</td>
+            <td id="p2-GP">-</td>
+          </tr>
+          <tr>
+            <td>Points</td>
+            <td id="p1-P">-</td>
+            <td id="p2-P">-</td>
+          </tr>
+          <tr>
+            <td>Goals</td>
+            <td id="p1-G">-</td>
+            <td id="p2-G">-</td>
+          </tr>
+          <tr>
+            <td>Assists</td>
+            <td id="p1-A">-</td>
+            <td id="p2-A">-</td>
+          </tr>
+          <tr>
+            <td>+/-</td>
+            <td id="p1-+/-">-</td>
+            <td id="p2-+/-">-</td>
+          </tr>
+          <tr>
+            <td>P/GP</td>
+            <td id="p1-P/GP">-</td>
+            <td id="p2-P/GP">-</td>
+          </tr>
+          <tr>
+            <td>EVP</td>
+            <td id="p1-EVP">-</td>
+            <td id="p2-EVP">-</td>
+          </tr>
+          <tr>
+            <td>PPP</td>
+            <td id="p1-PPP">-</td>
+            <td id="p2-PPP">-</td>
+          </tr>
+          <tr>
+            <td>PIM</td>
+            <td id="p1-PIM">-</td>
+            <td id="p2-PIM">-</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
