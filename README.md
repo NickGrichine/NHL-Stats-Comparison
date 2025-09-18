@@ -1,4 +1,4 @@
-# Hockey Project 🏒
+# Top 100 NHL Players Comparison 🏒
 
 [View the live site here](https://nickgrichine.github.io/NHL-Players-Comparison/)
 
