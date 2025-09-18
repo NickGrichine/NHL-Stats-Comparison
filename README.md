@@ -42,8 +42,6 @@ Compare NHL skaters using an interactive radar chart and a side-by-side stats ta
   - **Teams**: standard NHL abbreviations → full names (e.g., `EDM` → `Edmonton Oilers`). Multiple teams supported (e.g., `COL, CAR, DAL`).
   - **Positions**: common abbreviations → full names (e.g., `C` → `Center`, `L`/`LW` → `Left Wing`, `R`/`RW` → `Right Wing`, `D` → `Defenseman`). Combined positions are supported (e.g., `C/R`).
 
-## 📂 Project Structure
-
 ## 🔗 Deployment
 This project is deployed via **GitHub Pages**.  
 You can view it here:  
