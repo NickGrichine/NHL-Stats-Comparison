@@ -49,5 +49,5 @@ You can view it here:
 
 ## 📌 Next Steps
 - Add more interactive features
-- Add a feature to be able to switch to team comparisons
+- Add a feature to be able to switch to comparing teams instead of individual players
 - Expand styling for more polish
