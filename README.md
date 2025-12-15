@@ -47,7 +47,7 @@ This project is deployed via **GitHub Pages**.
 You can view it here:  
 👉 **https://nickgrichine.github.io/NHL-Players-Comparison/**
 
-## 📌 Next Steps
-- Add more interactive features
+## 📌 Next Steps / Future Features
+- Implement usage of an API to allow real-time stats updates
 - Add a feature to be able to switch to comparing teams instead of individual players
-- Expand styling for more polish
+- Expand styling for more polish and add more interactive features
