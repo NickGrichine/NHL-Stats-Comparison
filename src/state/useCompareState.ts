@@ -8,8 +8,15 @@
  *
  *   ?kind=skaters&season=20242025&gt=2&norm=pct&cohort=pos&sel=8478402,8447400@19851986
  *
- * A selection may pin its own season with `@`, which is what makes cross-era
- * comparison possible: McDavid's 2024-25 against Gretzky's 1985-86 on one chart.
+ * A selection pins to one specific season by default — McDavid stays at
+ * 2024-25 no matter how far you later browse, which is what makes a
+ * multi-player or cross-era comparison ("McDavid's 2024-25 against Gretzky's
+ * 1985-86") reliable rather than something that scatters the moment the
+ * Season selector moves. `null` ("floating") is the opt-in exception: a
+ * selection toggled to follow tracks whatever season the page is showing,
+ * for the common case of watching one player's numbers move as you browse
+ * without removing and re-adding them. `@season` in the URL spells out a
+ * pin; its absence means floating.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,6 +25,12 @@ import type { EntityKind, GameType, SeasonScope, Selection } from '../types';
 export type Normalisation = 'pct' | 'raw';
 export type CohortMode = 'pos' | 'all';
 
+export interface Pick {
+  id: number;
+  /** null = floats with `state.season`; a value = pinned to that season. */
+  season: SeasonScope | null;
+}
+
 export interface CompareState {
   kind: EntityKind;
   season: SeasonScope;
@@ -25,10 +38,15 @@ export interface CompareState {
   norm: Normalisation;
   cohort: CohortMode;
   /** Entities being compared, in chart order. */
-  picks: { id: number; season: SeasonScope }[];
+  picks: Pick[];
 }
 
 export const MAX_PICKS = 4;
+
+/** A pick's actual season for data-loading and display purposes. */
+export function effectiveSeason(pick: Pick, pageSeason: SeasonScope): SeasonScope {
+  return pick.season ?? pageSeason;
+}
 
 const KINDS: EntityKind[] = ['skaters', 'goalies', 'teams'];
 
@@ -39,6 +57,14 @@ function parseSeason(raw: string | null, fallback: SeasonScope): SeasonScope {
   return Number.isFinite(n) && n > 19000000 ? n : fallback;
 }
 
+/** Same as parseSeason, but a missing/invalid value means "floating", not a fallback. */
+function parsePinnedSeason(raw: string | undefined): SeasonScope | null {
+  if (!raw) return null;
+  if (raw === 'career') return 'career';
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 19000000 ? n : null;
+}
+
 function parseState(search: string, defaults: CompareState): CompareState {
   const params = new URLSearchParams(search);
 
@@ -46,7 +72,8 @@ function parseState(search: string, defaults: CompareState): CompareState {
   const kind = KINDS.includes(kindRaw as EntityKind) ? (kindRaw as EntityKind) : defaults.kind;
   const season = parseSeason(params.get('season'), defaults.season);
   const gameType = params.get('gt') === '3' ? 3 : 2;
-  const norm = params.get('norm') === 'raw' ? 'raw' : 'pct';
+  const normRaw = params.get('norm');
+  const norm = normRaw === 'pct' || normRaw === 'raw' ? normRaw : defaults.norm;
   const cohort = params.get('cohort') === 'all' ? 'all' : 'pos';
 
   const picks = (params.get('sel') ?? '')
@@ -57,11 +84,9 @@ function parseState(search: string, defaults: CompareState): CompareState {
     .map((token) => {
       const [idPart, seasonPart] = token.split('@');
       const id = Number(idPart);
-      return Number.isFinite(id)
-        ? { id, season: parseSeason(seasonPart ?? null, season) }
-        : null;
+      return Number.isFinite(id) ? { id, season: parsePinnedSeason(seasonPart) } : null;
     })
-    .filter((pick): pick is { id: number; season: SeasonScope } => pick !== null);
+    .filter((pick): pick is Pick => pick !== null);
 
   return { kind, season, gameType, norm, cohort, picks };
 }
@@ -71,16 +96,20 @@ function serialise(state: CompareState): string {
   params.set('kind', state.kind);
   params.set('season', String(state.season));
   if (state.gameType !== 2) params.set('gt', String(state.gameType));
-  if (state.norm !== 'pct') params.set('norm', state.norm);
+  // Always spelled out (unlike gameType/cohort's omit-if-default), because
+  // this one has no single static default to omit against — the app's
+  // fallback lives in FALLBACK_DEFAULTS and could change again.
+  params.set('norm', state.norm);
   if (state.cohort !== 'pos') params.set('cohort', state.cohort);
 
   if (state.picks.length > 0) {
     params.set(
       'sel',
       state.picks
-        // Only spell out a season when it differs from the page's season,
-        // so the common case stays a short, readable link.
-        .map((pick) => (pick.season === state.season ? String(pick.id) : `${pick.id}@${pick.season}`))
+        // A pin is always spelled out, even when it happens to match the
+        // page's current season — omitting it there would round-trip back
+        // as floating and start following the page again.
+        .map((pick) => (pick.season === null ? String(pick.id) : `${pick.id}@${pick.season}`))
         .join(','),
     );
   }
@@ -125,19 +154,26 @@ export function useCompareState(defaults: CompareState) {
       state.picks.map((pick) => ({
         kind: state.kind,
         id: pick.id,
-        season: pick.season,
+        season: effectiveSeason(pick, state.season),
         gameType: state.gameType,
       })),
-    [state.picks, state.kind, state.gameType],
+    [state.picks, state.kind, state.season, state.gameType],
   );
 
   const addPick = useCallback(
+    // `season` set is an explicit cross-era pin (from the "Other seasons"
+    // search); omitted is a normal in-season pick — pinned to the page's
+    // current season all the same, so it does not drift if the page later
+    // does. Nothing floats until the visitor asks it to, via toggleFollow.
     (id: number, season?: SeasonScope) => {
       setState((previous) => {
         if (previous.picks.length >= MAX_PICKS) return previous;
-        const pickSeason = season ?? previous.season;
-        if (previous.picks.some((p) => p.id === id && p.season === pickSeason)) return previous;
-        const next = { ...previous, picks: [...previous.picks, { id, season: pickSeason }] };
+        const pinnedSeason = season ?? previous.season;
+        const isDuplicate = previous.picks.some(
+          (p) => p.id === id && effectiveSeason(p, previous.season) === pinnedSeason,
+        );
+        if (isDuplicate) return previous;
+        const next = { ...previous, picks: [...previous.picks, { id, season: pinnedSeason }] };
         window.history.replaceState(null, '', `${window.location.pathname}${serialise(next)}`);
         return next;
       });
@@ -153,6 +189,26 @@ export function useCompareState(defaults: CompareState) {
     });
   }, []);
 
+  /**
+   * Flip one pick between pinned and floating. Pinning freezes it at
+   * whatever season it is showing right now — not "back to where it was
+   * added" — since that is the season the visitor was just looking at when
+   * they decided to lock it in place.
+   */
+  const toggleFollow = useCallback((index: number) => {
+    setState((previous) => {
+      const pick = previous.picks[index];
+      if (!pick) return previous;
+      const nextSeason = pick.season === null ? previous.season : null;
+      const next = {
+        ...previous,
+        picks: previous.picks.map((p, i) => (i === index ? { ...p, season: nextSeason } : p)),
+      };
+      window.history.replaceState(null, '', `${window.location.pathname}${serialise(next)}`);
+      return next;
+    });
+  }, []);
+
   const shareUrl = useMemo(
     () =>
       typeof window === 'undefined'
@@ -161,7 +217,7 @@ export function useCompareState(defaults: CompareState) {
     [state],
   );
 
-  return { state, update, commit, selections, addPick, removePick, shareUrl };
+  return { state, update, commit, selections, addPick, removePick, toggleFollow, shareUrl };
 }
 
 export const __testing = { parseState, serialise };

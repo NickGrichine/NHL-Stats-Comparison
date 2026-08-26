@@ -16,6 +16,11 @@
 import type { StatRow } from '../types';
 import { positionGroup } from './teams';
 
+/** A career has to be long enough to be a career before it joins the cohort. */
+export const CAREER_MIN_GAMES = 100;
+/** Playoff runs are short by nature, so the qualifying line is flat and low. */
+export const PLAYOFF_MIN_GAMES = 3;
+
 export interface CohortOptions {
   /** Games each team played that season, used to derive the qualifying line. */
   gamesInSeason?: number | null;

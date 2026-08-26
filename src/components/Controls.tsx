@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { EntityKind, GameType, Manifest, SeasonScope } from '../types';
 import type { CohortMode, CompareState, Normalisation } from '../state/useCompareState';
@@ -20,8 +20,38 @@ const KIND_LABELS: Record<EntityKind, string> = {
 export function Controls({ state, manifest, shareUrl, onChange }: Props) {
   const [copied, setCopied] = useState(false);
 
-  const seasons = manifest?.seasons ?? [];
+  // A season with no regular-season rows yet — the upcoming season before
+  // opening night — has nothing to show or rank players against, so it is
+  // left off the list rather than offered as an empty, confusing choice.
+  const seasons = useMemo(
+    () =>
+      (manifest?.seasons ?? []).filter(
+        (season) => (manifest?.counts[String(season.id)]?.[`${state.kind}-2`] ?? 0) > 0,
+      ),
+    [manifest, state.kind],
+  );
   const career = supportsCareer(state.kind);
+
+  // Same idea for playoffs: a season can have regular-season data well before
+  // its playoffs start (or, for the current season, before they exist at
+  // all), so the option is only offered once there is a playoff row to show.
+  const playoffsAvailable =
+    state.season === 'career'
+      ? true
+      : (manifest?.counts[String(state.season)]?.[`${state.kind}-3`] ?? 0) > 0;
+
+  useEffect(() => {
+    if (state.gameType === 3 && !playoffsAvailable) onChange({ gameType: 2 });
+  }, [state.gameType, playoffsAvailable, onChange]);
+
+  // A season picked before a kind switch (or restored from a shared link)
+  // can land outside the now-filtered list — fall back to the newest season
+  // that actually has data rather than silently showing a blank select.
+  useEffect(() => {
+    if (state.season === 'career' || seasons.length === 0) return;
+    if (seasons.some((season) => season.id === state.season)) return;
+    onChange({ season: Math.max(...seasons.map((season) => season.id)) });
+  }, [state.season, seasons, onChange]);
 
   const copy = async () => {
     try {
@@ -89,20 +119,12 @@ export function Controls({ state, manifest, shareUrl, onChange }: Props) {
           onChange={(event) => onChange({ gameType: Number(event.target.value) as GameType })}
         >
           <option value="2">Regular season</option>
-          <option value="3">Playoffs</option>
+          {playoffsAvailable && <option value="3">Playoffs</option>}
         </select>
       </label>
 
       <label className="field">
-        <span>
-          Scale
-          <abbr
-            className="hint"
-            title="Percentile ranks each stat against everyone else in the same season and position, so eras compare fairly. Raw range scales against that season's best and worst instead."
-          >
-            ?
-          </abbr>
-        </span>
+        <span>Scale</span>
         <select
           value={state.norm}
           onChange={(event) => onChange({ norm: event.target.value as Normalisation })}

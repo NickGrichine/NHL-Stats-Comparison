@@ -255,19 +255,6 @@ a {
   padding: 8px 10px;
 }
 
-.hint {
-  display: inline-grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  margin-left: 5px;
-  font-size: 0.68rem;
-  border-radius: 50%;
-  border: 1px solid var(--border-strong);
-  cursor: help;
-  text-decoration: none;
-}
-
 .share,
 .theme-toggle {
   font: inherit;
@@ -301,6 +288,9 @@ a {
   position: relative;
   display: flex;
   min-width: min(320px, 100%);
+  /* No visible border of its own — this radius only shapes the focus ring
+     below, so it traces the input+button pill instead of a plain rectangle. */
+  border-radius: var(--radius-sm);
 }
 
 .picker input {
@@ -316,6 +306,19 @@ a {
   color: var(--text-muted);
   cursor: pointer;
   padding: 0 12px;
+}
+
+/* The input's own default focus outline is a plain rectangle offset outward
+   on every side, so on its right edge it cuts across the toggle button
+   instead of stopping at the seam between them. One ring around the pair,
+   shaped by .picker's border-radius above, reads as a single control. */
+.picker:focus-within {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.picker input:focus-visible,
+.picker-toggle:focus-visible {
+  outline: none;
 }
 
 .picker-list {
@@ -419,6 +422,33 @@ a {
   font-weight: 600;
 }
 
+/* Overrides the round icon-button look of `.chips button` (meant for the ×
+   remove button) — this one shows text (a season, or "Live") and needs a
+   pill shape to match. */
+.chips button.chip-follow {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chips button.chip-follow:hover {
+  color: var(--text);
+  background: var(--bg-sunken);
+  border-color: var(--accent);
+}
+
+.chips button.chip-follow.is-following {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .chip-season {
   font-size: 0.76rem;
   color: var(--text-muted);
@@ -444,6 +474,30 @@ a {
 .radar-canvas {
   position: relative;
   height: clamp(300px, 46vw, 430px);
+}
+
+.radar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.radar-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.radar-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .radar-empty {

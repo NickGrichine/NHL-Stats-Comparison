@@ -12,7 +12,7 @@ This is a full-stack side project built to explore an interesting data problem: 
 
 - **Every player, every season.** All skaters, goalies, and teams back to the league's first year, not just a curated list.
 - **Era-adjusted comparisons.** Each stat is shown as a percentile against the players who shared the ice with them, in that season, at that position, so a 1985 season and a 2025 season can sit on the same chart honestly.
-- **Cross-era charts.** Pin different players in different seasons and compare them on one radar.
+- **Cross-era charts.** Every pick stays on its own season by default — pin McDavid's 2024-25 against Gretzky's 1985-86 on one radar — or toggle a pick to "live" to have it follow whatever season you're browsing instead.
 - **Regular season, playoffs, and career totals**, with a live scoreboard and standings.
 - **Shareable links** — the whole comparison lives in the URL.
 
