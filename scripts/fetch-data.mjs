@@ -142,7 +142,7 @@ async function buildSlice(seasonId, kind, gameType, context) {
         return [];
       }
     }),
-    3,
+    2,
   );
 
   const merged = mergeReports(entity.key, results);
@@ -290,6 +290,25 @@ async function buildFranchiseIndex(teamLookup) {
   return rows.length;
 }
 
+/** Write the manifest. Called periodically so progress survives a crash. */
+async function saveManifest(seasons, counts) {
+  await writeJson('manifest.json', {
+    schema: SCHEMA_VERSION,
+    generatedAt: new Date().toISOString(),
+    liveFetchedAt: new Date().toISOString(),
+    currentSeason: currentSeasonId(),
+    seasons: seasons.map(({ id, label, games, perTeam, playoffGames, ties }) => ({
+      id,
+      label,
+      games,
+      perTeam,
+      playoffGames,
+      ties,
+    })),
+    counts,
+  });
+}
+
 /** Today's games and the live standings. Cheap, so refreshed on every run. */
 async function buildLive() {
   const results = {};
@@ -367,8 +386,10 @@ async function main() {
 
   log(`${work.length} slices to fetch.`);
 
-  let changed = work.length > 0;
+  const changed = work.length > 0;
+  const failed = [];
   let index = 0;
+
   for (const item of work) {
     index += 1;
     const tag = `${formatSeasonId(item.season.id)} ${item.kind} gt${item.gameType}`;
@@ -378,9 +399,17 @@ async function main() {
       counts[item.season.id][`${item.kind}-${item.gameType}`] = rows ?? 0;
       log(`  [${index}/${work.length}] ${tag}: ${rows ?? 0} rows`);
     } catch (error) {
+      // One bad slice must not throw away 600 good ones. Record it, carry on,
+      // and fail loudly at the end — the next run picks up exactly what is
+      // still missing, because the work set is computed from what is on disk.
       console.error(`  [${index}/${work.length}] ${tag}: FAILED — ${error.message}`);
-      throw error;
+      failed.push({ tag, message: error.message });
     }
+
+    // Checkpoint, so a crash costs one slice rather than the whole run's
+    // bookkeeping — including the "known empty" markers that stop us
+    // re-asking about seasons that have no playoffs.
+    if (index % 25 === 0) await saveManifest(seasons, counts);
   }
 
   if (changed || !(await exists(path.join(OUT_DIR, 'index/players.json')))) {
@@ -398,23 +427,26 @@ async function main() {
     }
   }
 
-  await writeJson('manifest.json', {
-    schema: SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
-    liveFetchedAt: new Date().toISOString(),
-    currentSeason: currentSeasonId(),
-    seasons: seasons.map(({ id, label, games, perTeam, playoffGames, ties }) => ({
-      id,
-      label,
-      games,
-      perTeam,
-      playoffGames,
-      ties,
-    })),
-    counts,
-  });
+  await saveManifest(seasons, counts);
 
   log(`Done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`);
+
+  if (failed.length > 0) {
+    console.error(`\n${failed.length} of ${work.length} slice(s) failed:`);
+    for (const { tag, message } of failed) console.error(`  ${tag} — ${message}`);
+
+    // A handful of failures out of hundreds is not worth blocking a deploy
+    // over: the work set is derived from what is on disk, so the next run
+    // retries exactly the gaps and nothing else. Fail the build only when
+    // enough went wrong that the dataset should not be trusted.
+    const rate = failed.length / Math.max(work.length, 1);
+    if (rate > 0.02) {
+      console.error(`\n${(rate * 100).toFixed(1)}% failed — failing the build.`);
+      process.exitCode = 1;
+    } else {
+      console.warn('\nBelow the 2% threshold; the next run will pick these up.');
+    }
+  }
 }
 
 main().catch((error) => {

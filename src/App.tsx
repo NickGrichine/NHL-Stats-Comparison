@@ -312,7 +312,7 @@ export default function App() {
           affiliated with or endorsed by the National Hockey League.
         </p>
         <p>
-          <a href="https://github.com/NickGrichine/NHL-Players-Comparison">Source on GitHub</a>
+          <a href="https://github.com/NickGrichine/NHL-Stats-Comparison">Source on GitHub</a>
         </p>
       </footer>
     </main>
