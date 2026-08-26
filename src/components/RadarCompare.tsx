@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Chart as ChartJS,
   Filler,
@@ -47,6 +47,37 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/**
+ * Chart.js draws to a canvas, so it needs resolved colors, not `var(--text)`
+ * references — read the theme tokens off the root element and re-read them
+ * whenever ThemeToggle flips `data-theme`.
+ */
+function readThemeTextColors() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    text: style.getPropertyValue('--text').trim() || '#101827',
+    muted: style.getPropertyValue('--text-muted').trim() || '#5a6880',
+  };
+}
+
+function useThemeTextColors() {
+  const [colors, setColors] = useState(readThemeTextColors);
+
+  useEffect(() => {
+    const update = () => setColors(readThemeTextColors());
+    // ThemeToggle applies the initial theme in its own mount effect, which
+    // may run before or after this one — re-sync immediately rather than
+    // relying solely on the observer, or a same-tick mutation can be missed
+    // and the chart stays on the dark palette until the user toggles theme.
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return colors;
+}
+
 function ordinal(value: number): string {
   const rounded = Math.round(value);
   const mod100 = rounded % 100;
@@ -57,6 +88,7 @@ function ordinal(value: number): string {
 
 export function RadarCompare({ series, metrics, norm }: Props) {
   const score = norm === 'pct' ? scoreMetric : scaleMetric;
+  const textColors = useThemeTextColors();
 
   const data = useMemo(
     () => ({
@@ -91,7 +123,7 @@ export function RadarCompare({ series, metrics, norm }: Props) {
           grid: { color: 'rgba(148, 163, 184, 0.22)' },
           angleLines: { color: 'rgba(148, 163, 184, 0.22)' },
           pointLabels: {
-            color: 'rgba(203, 213, 225, 0.95)',
+            color: textColors.text,
             font: { size: 12, weight: 600 },
           },
         },
@@ -99,7 +131,7 @@ export function RadarCompare({ series, metrics, norm }: Props) {
       plugins: {
         legend: {
           position: 'top' as const,
-          labels: { color: 'rgba(226, 232, 240, 0.95)', usePointStyle: true, boxWidth: 10 },
+          labels: { color: textColors.text, usePointStyle: true, boxWidth: 10 },
         },
         tooltip: {
           callbacks: {
@@ -130,7 +162,7 @@ export function RadarCompare({ series, metrics, norm }: Props) {
         },
       },
     }),
-    [metrics, series, norm],
+    [metrics, series, norm, textColors],
   );
 
   if (series.length === 0) {

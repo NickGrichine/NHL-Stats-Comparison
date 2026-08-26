@@ -197,7 +197,7 @@ export default function App() {
     return (
       <main className="shell">
         <header className="masthead">
-          <h1>NHL Comparison</h1>
+          <h1>NHL Stats Comparison</h1>
         </header>
         <div className="notice">
           <h2>No data published yet</h2>
@@ -216,7 +216,7 @@ export default function App() {
     <main className="shell">
       <header className="masthead">
         <div>
-          <h1>NHL Comparison</h1>
+          <h1>NHL Stats Comparison</h1>
           <p className="tagline">
             Every skater, goalie and team since 1917-18, compared on an era-adjusted scale.
           </p>
