@@ -1,4 +1,4 @@
-# NHL Comparison 🏒
+# NHL Stats Comparison 🏒
 
 Compare any NHL skater, goalie, or team from any season since 1917-18 on an era-adjusted radar chart and stats table.
 
