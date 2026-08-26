@@ -1,6 +1,6 @@
 # NHL Comparison 🏒
 
-**[View the live site →](https://nickgrichine.github.io/NHL-Players-Comparison/)**
+**[View the live site →](https://nickgrichine.github.io/NHL-Stats-Comparison/)**
 
 Compare any NHL skater, goalie or team — from any of the **109 seasons since 1917-18** — on
 an era-adjusted radar chart and a side-by-side stats table. Data refreshes itself from the
