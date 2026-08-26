@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+.vscode/*
+!.vscode/settings.json
+
+# Generated NHL data. Lives on the `data` branch, never on main.
+/data/
+
+# Locally generated dataset for `npm run data:dev`
+/public/data/
+
+# Scratch from earlier API probing
+.tmp-api/

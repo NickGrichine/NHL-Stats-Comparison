@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "assists": 0,
+      "gamesPlayed": 24,
+      "gamesStarted": 21,
+      "goalieFullName": "James Reimer",
+      "goals": 0,
+      "goalsAgainst": 69,
+      "goalsAgainstAverage": 3.03778,
+      "lastName": "Reimer",
+      "losses": 10,
+      "otLosses": 2,
+      "penaltyMinutes": 0,
+      "playerId": 8473503,
+      "points": 0,
+      "savePct": 0.89728,
+      "saves": 594,
+      "seasonId": 20242025,
+      "shootsCatches": "L",
+      "shotsAgainst": 662,
+      "shutouts": 1,
+      "teamAbbrevs": "ANA,BUF",
+      "ties": null,
+      "timeOnIce": 81770,
+      "wins": 10
+    }
+  ],
+  "total": 103
+}

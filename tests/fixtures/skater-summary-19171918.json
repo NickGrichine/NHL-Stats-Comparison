@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "assists": 0,
+      "evGoals": null,
+      "evPoints": null,
+      "faceoffWinPct": null,
+      "gameWinningGoals": 0,
+      "gamesPlayed": 1,
+      "goals": 0,
+      "lastName": "Thompson",
+      "otGoals": 0,
+      "penaltyMinutes": 0,
+      "playerId": 8449231,
+      "plusMinus": null,
+      "points": 0,
+      "pointsPerGame": 0.0,
+      "positionCode": "L",
+      "ppGoals": null,
+      "ppPoints": null,
+      "seasonId": 19171918,
+      "shootingPct": null,
+      "shootsCatches": "L",
+      "shots": null,
+      "skaterFullName": "Ken Thompson",
+      "teamAbbrevs": "MWN",
+      "timeOnIcePerGame": null
+    }
+  ],
+  "total": 39
+}

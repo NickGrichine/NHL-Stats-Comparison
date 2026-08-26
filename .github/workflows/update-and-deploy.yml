@@ -1,0 +1,128 @@
+name: Update data and deploy
+
+# The NHL API sends no CORS headers, so the browser can never call it directly.
+# This workflow is the data layer: it fetches server-side, stores the result on
+# the `data` branch, and ships it alongside the built site to GitHub Pages.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Refetch every season from scratch (slow)'
+        type: boolean
+        default: false
+  schedule:
+    # Full incremental refresh: current season stats, four times a day.
+    - cron: '0 */6 * * *'
+    # Scoreboard and standings only — cheap, so hourly.
+    - cron: '20 * * * *'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Never let two runs fight over the `data` branch or the Pages deployment.
+concurrency:
+  group: update-and-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Decide refresh mode
+        id: mode
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "mode=--force" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "20 * * * *" ]; then
+            echo "mode=--live-only" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The `data` branch is the durable store. Keeping it out of `main` means
+      # the source repo stays small and readable, while a cache eviction never
+      # costs us a 109-season backfill.
+      - name: Restore data branch
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          if git ls-remote --exit-code --heads "$REPO_URL" data >/dev/null 2>&1; then
+            echo "data branch found — cloning"
+            git clone --quiet --depth 1 --branch data "$REPO_URL" data
+          else
+            echo "no data branch yet — bootstrapping"
+            mkdir -p data
+            git -C data init --quiet --initial-branch=data
+          fi
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Fetch NHL data
+        run: node scripts/fetch-data.mjs ${{ steps.mode.outputs.mode }}
+
+      - name: Sanity-check the dataset
+        run: |
+          test -f data/manifest.json || { echo "::error::manifest.json missing"; exit 1; }
+          seasons=$(node -p "require('./data/manifest.json').seasons.length")
+          echo "manifest lists $seasons seasons"
+          [ "$seasons" -ge 100 ] || { echo "::error::only $seasons seasons — refusing to deploy"; exit 1; }
+
+      - name: Commit data branch
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        working-directory: data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no data changes"
+          else
+            git commit -q -m "data: refresh $(date -u +'%Y-%m-%dT%H:%MZ')"
+            git remote remove origin 2>/dev/null || true
+            git remote add origin "$REPO_URL"
+            git push --quiet --force origin HEAD:data
+            echo "pushed data branch"
+          fi
+
+      - name: Build site
+        run: npm run build
+
+      - name: Stage data into the build
+        run: |
+          rm -rf dist/data
+          mkdir -p dist/data
+          # Copy the payload, never the git metadata.
+          (cd data && tar --exclude=.git -cf - .) | (cd dist/data && tar -xf -)
+          du -sh dist/data
+          # A 404-less SPA on Pages: unknown paths fall back to the app shell.
+          cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
