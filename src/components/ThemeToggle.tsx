@@ -11,7 +11,7 @@ function initialTheme(): Theme {
   } catch {
     // Private browsing and blocked site data both throw here; fall through.
   }
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  return 'light';
 }
 
 export function ThemeToggle() {
