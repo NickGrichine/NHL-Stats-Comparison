@@ -1,16 +1,17 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
-import type { PlayerIndexEntry, SeasonScope, StatRow } from '../types';
+import type { GameType, PlayerIndexEntry, SeasonScope, StatRow } from '../types';
 import { formatSeasonId } from '../../shared/seasons.mjs';
 import { teamNames } from '../lib/teams';
+import { PLAYOFF_MIN_GAMES } from '../lib/percentile';
 
 interface Props {
   /** Everyone available in the currently selected season. */
   rows: StatRow[];
   /** Every player who ever played, for the "other seasons" suggestions. */
   index: PlayerIndexEntry[];
-  season: SeasonScope;
   kind: string;
+  gameType: GameType;
   disabled?: boolean;
   onPick: (id: number, season?: SeasonScope) => void;
 }
@@ -22,7 +23,62 @@ interface Option {
   season?: SeasonScope;
 }
 
-const MAX_RESULTS = 8;
+/** Cross-era name matches are a secondary feature — keep that list bounded. */
+const MAX_OTHER_SEASON_RESULTS = 8;
+
+/**
+ * What "best" means for the ranking each kind opens with. Points for skaters
+ * is the obvious read; teams follow the standings' own sort. Goalies have no
+ * single obvious stat, so save percentage was picked over wins (too team- and
+ * era-dependent) and over GAA (save percentage reads the same "higher is
+ * better" direction as the other two, so one comparator works for all three).
+ */
+const RANK_KEY: Record<string, string> = {
+  skaters: 'p',
+  goalies: 'svPct',
+  teams: 'pts',
+};
+
+/**
+ * A backup goalie's one relief appearance can post a 1.000 save percentage —
+ * technically the season "leader" by that stat alone, but not what "top
+ * goalies" means to anyone. Everyone still appears in the list (nothing here
+ * filters, it only reorders), but a small qualifying sample is ranked above
+ * outliers built on a handful of shots. Playoffs reuse the app's own flat
+ * playoff floor, since a title run is a handful of games win or lose.
+ */
+function qualifyingGamesFor(kind: string, gameType: GameType): number {
+  if (kind !== 'goalies') return 0;
+  return gameType === 3 ? PLAYOFF_MIN_GAMES : 10;
+}
+
+/**
+ * Highest value first; rows missing the stat (nulls, untracked eras) sort
+ * last. Rows below the kind's qualifying-games line (if any) are ranked
+ * among themselves the same way, but placed after every qualifying row.
+ */
+function byRankDesc(rows: StatRow[], key: string, minGames = 0): StatRow[] {
+  const rank = (row: StatRow) => {
+    const raw = row[key];
+    if (raw === null || raw === undefined) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const qualifies = (row: StatRow) => minGames <= 0 || Number(row.gp) >= minGames;
+
+  return [...rows].sort((a, b) => {
+    const aQualifies = qualifies(a);
+    const bQualifies = qualifies(b);
+    if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
+
+    const av = rank(a);
+    const bv = rank(b);
+    if (av !== null && bv !== null) return bv - av;
+    if (av !== null) return -1;
+    if (bv !== null) return 1;
+    return 0;
+  });
+}
 
 /**
  * A search box that behaves like a real combobox.
@@ -33,20 +89,28 @@ const MAX_RESULTS = 8;
  * other season in NHL history, so typing "Gretzky" while sitting on 2024-25
  * still finds him and offers to jump to a season he actually played.
  */
-export function EntityPicker({ rows, index, season, kind, disabled, onPick }: Props) {
+export function EntityPicker({ rows, index, kind, gameType, disabled, onPick }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Ranked once per season/kind so the dropdown opens on the season's best,
+  // not whatever order the API happened to return — and so search results
+  // stay ranked-best-first among their matches too.
+  const ranked = useMemo(
+    () => byRankDesc(rows, RANK_KEY[kind] ?? 'p', qualifyingGamesFor(kind, gameType)),
+    [rows, kind, gameType],
+  );
+
   const inSeason = useMemo<Option[]>(() => {
     const needle = query.trim().toLowerCase();
     const source = needle
-      ? rows.filter((row) => String(row.name).toLowerCase().includes(needle))
-      : rows;
+      ? ranked.filter((row) => String(row.name).toLowerCase().includes(needle))
+      : ranked;
 
-    return source.slice(0, MAX_RESULTS).map((row) => ({
+    return source.map((row) => ({
       id: row.id,
       name: String(row.name),
       detail:
@@ -56,7 +120,7 @@ export function EntityPicker({ rows, index, season, kind, disabled, onPick }: Pr
               .filter(Boolean)
               .join(' · '),
     }));
-  }, [rows, query, kind]);
+  }, [ranked, query, kind]);
 
   const elsewhere = useMemo<Option[]>(() => {
     const needle = query.trim().toLowerCase();
@@ -65,7 +129,7 @@ export function EntityPicker({ rows, index, season, kind, disabled, onPick }: Pr
     const present = new Set(inSeason.map((option) => option.id));
     return index
       .filter((entry) => !present.has(entry.id) && entry.name.toLowerCase().includes(needle))
-      .slice(0, MAX_RESULTS)
+      .slice(0, MAX_OTHER_SEASON_RESULTS)
       .map((entry) => ({
         id: entry.id,
         name: entry.name,
@@ -93,7 +157,9 @@ export function EntityPicker({ rows, index, season, kind, disabled, onPick }: Pr
 
   const choose = (option: Option | undefined) => {
     if (!option) return;
-    onPick(option.id, option.season ?? season);
+    // undefined for an in-season pick (pins to the page's current season);
+    // set for a cross-era "Other seasons" match (pins to that entry's own).
+    onPick(option.id, option.season);
     setQuery('');
     setOpen(false);
   };

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Chart as ChartJS,
   Filler,
-  Legend,
   LineElement,
   PointElement,
   RadialLinearScale,
@@ -13,16 +12,23 @@ import {
 import { Radar } from 'react-chartjs-2';
 
 import type { Metric } from '../lib/metrics';
-import type { StatRow } from '../types';
+import type { SeasonScope, StatRow } from '../types';
 import { scaleMetric, scoreMetric, type Distributions } from '../lib/percentile';
 import type { Normalisation } from '../state/useCompareState';
 
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
 
 export interface Series {
   label: string;
   color: string;
   row: StatRow;
+  /** The season this entry is actually showing — its pin, or the page's. */
+  season: SeasonScope;
+  /** Whether this pick tracks the browsed season rather than a fixed pin. */
+  following: boolean;
+  /** Position in `state.picks` — not this array's own index, which skips
+   *  absent picks. Needed to address remove/toggle actions at the right pick. */
+  pickIndex: number;
   /**
    * The population this entity is ranked against — its own season and position
    * group, not a shared one. This is what makes a cross-era chart meaningful:
@@ -129,10 +135,10 @@ export function RadarCompare({ series, metrics, norm }: Props) {
         },
       },
       plugins: {
-        legend: {
-          position: 'top' as const,
-          labels: { color: textColors.text, usePointStyle: true, boxWidth: 10 },
-        },
+        // Rendered as HTML below instead — full control over spacing and
+        // marker style, and it stays legible without fighting Chart.js's
+        // own legend layout for a plain dot-and-label list.
+        legend: { display: false },
         tooltip: {
           callbacks: {
             // The axis carries an abbreviation to keep the chart readable;
@@ -175,6 +181,15 @@ export function RadarCompare({ series, metrics, norm }: Props) {
 
   return (
     <div className="radar-wrap">
+      <ul className="radar-legend" aria-label="Chart series">
+        {series.map((entry) => (
+          <li key={entry.label}>
+            <span className="radar-legend-dot" style={{ background: entry.color }} aria-hidden="true" />
+            {entry.label}
+          </li>
+        ))}
+      </ul>
+
       <div className="radar-canvas">
         <Radar data={data} options={options} />
       </div>

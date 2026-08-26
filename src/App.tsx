@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Controls } from './components/Controls';
 import { EntityPicker } from './components/EntityPicker';
@@ -9,29 +9,33 @@ import { Standings } from './components/Standings';
 import { StatTable } from './components/StatTable';
 import { ThemeToggle } from './components/ThemeToggle';
 
-import { loadDataset, loadManifest, loadPlayerIndex } from './api/datasets';
+import { loadDataset, loadFranchiseIndex, loadManifest, loadPlayerIndex } from './api/datasets';
 import { useAsync } from './api/useDataset';
 import { availableMetrics, radarMetrics, type Metric } from './lib/metrics';
-import { buildDistributions, cohortRows, type Distributions } from './lib/percentile';
+import {
+  buildDistributions,
+  cohortRows,
+  CAREER_MIN_GAMES,
+  PLAYOFF_MIN_GAMES,
+  type Distributions,
+} from './lib/percentile';
 import { fmtRelative } from './lib/format';
 import { positionGroup, seriesColors } from './lib/teams';
-import { MAX_PICKS, useCompareState, type CompareState } from './state/useCompareState';
+import { effectiveSeason, MAX_PICKS, useCompareState, type CompareState } from './state/useCompareState';
 import { formatSeasonId } from '../shared/seasons.mjs';
 import type { Manifest, SeasonScope, StatRow } from './types';
+
+/** A stable reference so an absent season never destabilises a memo just by being `[]`. */
+const EMPTY_ROWS: StatRow[] = [];
 
 const FALLBACK_DEFAULTS: CompareState = {
   kind: 'skaters',
   season: 20242025,
   gameType: 2,
-  norm: 'pct',
+  norm: 'raw',
   cohort: 'pos',
   picks: [],
 };
-
-/** A career has to be long enough to be a career before it joins the cohort. */
-const CAREER_MIN_GAMES = 100;
-/** Playoff runs are short by nature, so the qualifying line is flat and low. */
-const PLAYOFF_MIN_GAMES = 3;
 
 /**
  * The newest season that actually has data.
@@ -57,14 +61,43 @@ export default function App() {
     [manifest],
   );
 
-  const { state, update, addPick, removePick, shareUrl } = useCompareState(defaults);
+  const { state, update, addPick, removePick, toggleFollow, shareUrl } = useCompareState(defaults);
   const indexState = useAsync(loadPlayerIndex, []);
+  const franchiseState = useAsync(loadFranchiseIndex, []);
+
+  // A pick with no row for its season (browsed outside a player's career, or
+  // pinned somewhere they never played) still deserves a name on its chip —
+  // "Connor McDavid" reads as "not this season", where "#8478402" reads as
+  // "the app is broken". These indexes are all-time, season-independent, so
+  // they can resolve a name even when the season-specific row cannot.
+  const nameFor = useMemo(() => {
+    const players = new Map((indexState.data ?? []).map((entry) => [entry.id, entry.name] as const));
+    const teams = new Map((franchiseState.data?.rows ?? []).map((row) => [row.id, row.name] as const));
+    return (id: number) => (state.kind === 'teams' ? teams.get(id) : players.get(id)) ?? `#${id}`;
+  }, [indexState.data, franchiseState.data, state.kind]);
+
+  // useCompareState only reads `defaults` once, on the very first render —
+  // before the manifest has loaded, so a bare visit (no ?season= in the URL)
+  // starts on FALLBACK_DEFAULTS.season and stays there even after the real
+  // newest-populated season is known. Nudge it forward exactly once, and
+  // only when the visitor did not explicitly choose a season themselves
+  // (every link this app generates sets ?season=, so its absence means a
+  // plain visit rather than a shared comparison being overridden).
+  const [seasonSynced, setSeasonSynced] = useState(false);
+  useEffect(() => {
+    if (seasonSynced || !manifest) return;
+    setSeasonSynced(true);
+    if (new URLSearchParams(window.location.search).has('season')) return;
+    if (defaults.season !== state.season) update({ season: defaults.season });
+  }, [seasonSynced, manifest, defaults.season, state.season, update]);
 
   // Every season involved: the one being browsed, plus any season a pick was
-  // pinned to. Loading them all is what makes cross-era comparison work.
+  // pinned to. Loading them all is what makes cross-era comparison work. A
+  // floating pick (season: null) resolves to the browsed season, which is
+  // already in the set — it does not add a fetch of its own.
   const seasonKeys = useMemo(() => {
     const set = new Set<string>([String(state.season)]);
-    for (const pick of state.picks) set.add(String(pick.season));
+    for (const pick of state.picks) set.add(String(effectiveSeason(pick, state.season)));
     return [...set];
   }, [state.season, state.picks]);
 
@@ -80,7 +113,15 @@ export default function App() {
   }, [state.kind, state.gameType, seasonKeys.join('|')]);
 
   const datasets = datasetsState.data;
-  const pageRows = datasets?.get(String(state.season)) ?? [];
+  // Memoized (rather than a bare `?? []`) so a season that has not loaded yet
+  // resolves to the *same* empty-array reference on every render instead of a
+  // fresh one — otherwise every downstream memo that reads `pageRows` looks
+  // "changed" on every render while loading, for no real reason. That churn
+  // is what showed up as the radar chart flickering while browsing seasons.
+  const pageRows = useMemo(
+    () => datasets?.get(String(state.season)) ?? EMPTY_ROWS,
+    [datasets, state.season],
+  );
 
   /**
    * Metrics common to every dataset on screen.
@@ -114,7 +155,7 @@ export default function App() {
    * blueliner's point total against a first-line winger's is exactly the false
    * equivalence the old fixed-cap normalisation produced.
    */
-  const { series, missing } = useMemo(() => {
+  const freshResult = useMemo(() => {
     if (!datasets) return { series: [] as Series[], missing: [] as number[] };
 
     const keys = metrics.table.map((metric) => metric.key);
@@ -148,13 +189,14 @@ export default function App() {
       return built;
     };
 
-    const found: { row: StatRow; season: SeasonScope }[] = [];
+    const found: { row: StatRow; season: SeasonScope; following: boolean; pickIndex: number }[] = [];
     const absent: number[] = [];
 
     state.picks.forEach((pick, index) => {
-      const rows = datasets.get(String(pick.season)) ?? [];
+      const season = effectiveSeason(pick, state.season);
+      const rows = datasets.get(String(season)) ?? [];
       const row = rows.find((candidate) => candidate.id === pick.id);
-      if (row) found.push({ row, season: pick.season });
+      if (row) found.push({ row, season, following: pick.season === null, pickIndex: index });
       else absent.push(index);
     });
 
@@ -162,36 +204,54 @@ export default function App() {
       found.map(({ row }) => (typeof row.teams === 'string' ? row.teams : String(row.abbrev ?? ''))),
     );
 
-    const built: Series[] = found.map(({ row, season }, position) => {
+    // The season suffix disambiguates a cross-era comparison ("Kucherov
+    // 2017-18" vs. "Kucherov 2018-19"), so it only makes sense relative to
+    // the *other* picks on the chart — not to whatever the Season selector
+    // happens to be showing, which picking across eras naturally drifts from.
+    const seasonsInPlay = new Set(found.map(({ season }) => String(season)));
+    const showSeasonSuffix = seasonsInPlay.size > 1;
+
+    const built: Series[] = found.map(({ row, season, following, pickIndex }, position) => {
       const group =
         state.cohort === 'all' || state.kind === 'teams'
           ? 'ALL'
           : positionGroup(typeof row.pos === 'string' ? row.pos : null);
 
       return {
-        label:
-          season === state.season
-            ? String(row.name)
-            : `${row.name} (${season === 'career' ? 'career' : formatSeasonId(season)})`,
+        label: showSeasonSuffix
+          ? `${row.name} (${season === 'career' ? 'career' : formatSeasonId(season)})`
+          : String(row.name),
         color: colors[position] ?? '#4F9CF9',
         row,
+        season,
+        following,
+        pickIndex,
         distributions: distributionsFor(season, group),
       };
     });
 
     return { series: built, missing: absent };
-  }, [
-    datasets,
-    state.picks,
-    state.season,
-    state.cohort,
-    state.kind,
-    state.gameType,
-    metrics.table,
-    manifest,
-  ]);
+  }, [datasets, state.picks, state.season, state.cohort, state.kind, state.gameType, metrics.table, manifest]);
 
   const busy = manifestState.loading || datasetsState.loading;
+
+  // A floating pick's effective season changes the instant the Season
+  // selector does, but its row for that season may still be in flight over
+  // the network — `datasetsState.loading` does not flip to true until an
+  // effect runs after this render commits, so it lags the season change by
+  // one render and cannot be used to detect the gap. Comparing `seasonKeys`
+  // against `datasets`'s actual keys is synchronous with no such lag: it
+  // catches the exact render where a needed season has not arrived yet.
+  // Recomputing `freshResult` in that gap would drop the pick to "missing"
+  // for a frame and snap back once the fetch lands — the radar chart
+  // blinking as picks vanish and reappear. Hold the last result that had at
+  // least as much on it until every needed season is actually in hand.
+  const needsFetch = !datasets || seasonKeys.some((key) => !datasets.has(key));
+  const stableResultRef = useRef(freshResult);
+  if (!needsFetch || freshResult.series.length >= stableResultRef.current.series.length) {
+    stableResultRef.current = freshResult;
+  }
+  const { series, missing } = stableResultRef.current;
 
   if (manifestState.error) {
     return (
@@ -238,34 +298,41 @@ export default function App() {
         <EntityPicker
           rows={pageRows}
           index={indexState.data ?? []}
-          season={state.season}
           kind={state.kind}
+          gameType={state.gameType}
           disabled={busy || state.picks.length >= MAX_PICKS}
           onPick={addPick}
         />
         <p className="muted small">
           {state.picks.length >= MAX_PICKS
             ? 'Four is the maximum — remove one to add another.'
-            : `Add up to ${MAX_PICKS}. Change the season and add again to compare across eras.`}
+            : `Add up to ${MAX_PICKS}. Each pick stays on its own season — toggle a chip to "live" to have it follow the browsed season instead.`}
         </p>
       </section>
 
       <SelectionChips
         chips={[
-          ...series.map((entry, index) => ({
+          ...series.map((entry) => ({
             label: entry.label,
             color: entry.color,
-            season: state.picks[index]?.season ?? state.season,
+            season: entry.season,
+            following: entry.following,
+            pickIndex: entry.pickIndex,
           })),
-          ...missing.map((index) => ({
-            label: `#${state.picks[index]?.id}`,
-            color: '#64748B',
-            season: state.picks[index]?.season ?? state.season,
-            missing: true,
-          })),
+          ...missing.map((index) => {
+            const pick = state.picks[index];
+            return {
+              label: pick ? nameFor(pick.id) : 'Unknown',
+              color: '#64748B',
+              season: pick ? effectiveSeason(pick, state.season) : state.season,
+              following: pick?.season === null,
+              pickIndex: index,
+              missing: true,
+            };
+          }),
         ]}
-        pageSeason={state.season}
         onRemove={removePick}
+        onToggleFollow={toggleFollow}
       />
 
       {datasetsState.error && (
@@ -274,7 +341,7 @@ export default function App() {
         </div>
       )}
 
-      {!datasetsState.error && pageRows.length === 0 && !busy && (
+      {!datasetsState.error && pageRows.length === 0 && datasets?.has(String(state.season)) && (
         <div className="notice">
           <p>
             No {state.kind} recorded for{' '}
