@@ -18,11 +18,11 @@ This is a full-stack side project built to explore an interesting data problem: 
 
 ## Tech stack
 
-React 19 · TypeScript · Vite · Chart.js · Vitest · GitHub Actions · GitHub Pages
+React · TypeScript · Vite · Chart.js · CSS
 
 ## How it's built
 
-The NHL's public stats API has no CORS headers, so it can't be called directly from a browser. Instead, a scheduled GitHub Actions workflow fetches the data server-side, publishes it as compact JSON to a `data` branch, and the site loads it same-origin — no proxy, no backend server, no API keys.
+The NHL's public stats API has no CORS headers, so it can't be called directly from a browser. Instead, a scheduled GitHub Actions workflow fetches the data server-side, publishes it as compact JSON to a `data` branch, and the site loads it from the same origin — no proxy, no backend server, no API keys.
 
 Percentiles are computed at build time per season, game type, and position group, so every comparison is ranked against the right cohort instead of a single hardcoded scale.
 
