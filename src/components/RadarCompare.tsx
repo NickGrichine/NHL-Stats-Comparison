@@ -202,7 +202,18 @@ export function RadarCompare({ series, metrics, norm }: Props) {
           <li key={metric.key}>
             <abbr title={metric.label}>{metric.short}</abbr>
             <span>{metric.label}</span>
-            {metric.invert && <em>↓ lower is better</em>}
+            {metric.invert && (
+              // A CSS-driven tooltip, not the native `title` attribute — that
+              // one left only a bare help-cursor visible unless the visitor
+              // held perfectly still through the browser's own hover delay.
+              // Focusable too, so the explanation reaches keyboard users.
+              <span className="tip" tabIndex={0} aria-label="Lower is better, so the axis is inverted">
+                ↓
+                <span className="tip-bubble" role="tooltip">
+                  Lower is better
+                </span>
+              </span>
+            )}
           </li>
         ))}
       </ul>

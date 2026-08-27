@@ -536,9 +536,41 @@ a {
   border: 0;
 }
 
-.axis-key em {
-  font-style: normal;
+/* A small CSS-only tooltip — deliberately not the native `title` attribute,
+   which only ever showed a bare help-cursor here unless the visitor held
+   still through the browser's own hover delay. */
+.tip {
+  position: relative;
+  display: inline-flex;
   color: var(--text-muted);
+  cursor: help;
+}
+
+.tip-bubble {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 5;
+}
+
+.tip:hover .tip-bubble,
+.tip:focus-visible .tip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* ------------------------------------------------------------------ table */
