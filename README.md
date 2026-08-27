@@ -4,7 +4,7 @@ Compare any NHL skater, goalie, or team from any season since 1917-18 on an era-
 
 **[View the live site →](https://nickgrichine.github.io/NHL-Stats-Comparison/)**
 
-![Screenshot of the app comparing Connor McDavid and Sidney Crosby](docs/screenshot.png)
+![Screenshot of the app comparing Connor McDavid, Sidney Crosby, and Macklin Celebrini](docs/screenshot.png)
 
 ## Overview
 
