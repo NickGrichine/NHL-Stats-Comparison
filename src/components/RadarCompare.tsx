@@ -202,7 +202,7 @@ export function RadarCompare({ series, metrics, norm }: Props) {
           <li key={metric.key}>
             <abbr title={metric.label}>{metric.short}</abbr>
             <span>{metric.label}</span>
-            {metric.invert && <em title="Lower is better, so the axis is inverted">↓</em>}
+            {metric.invert && <em>↓ lower is better</em>}
           </li>
         ))}
       </ul>
