@@ -7,7 +7,7 @@ import { Scoreboard } from './components/Scoreboard';
 import { SelectionChips } from './components/SelectionChips';
 import { Standings } from './components/Standings';
 import { StatTable } from './components/StatTable';
-import { ThemeToggle } from './components/ThemeToggle';
+import { ThemeToggle, useTheme } from './components/ThemeToggle';
 
 import { loadDataset, loadFranchiseIndex, loadManifest, loadPlayerIndex } from './api/datasets';
 import { useAsync } from './api/useDataset';
@@ -20,7 +20,7 @@ import {
   type Distributions,
 } from './lib/percentile';
 import { fmtRelative } from './lib/format';
-import { positionGroup, seriesColors } from './lib/teams';
+import { positionGroup, seriesColorForTheme, seriesColors } from './lib/teams';
 import { effectiveSeason, MAX_PICKS, useCompareState, type CompareState } from './state/useCompareState';
 import { formatSeasonId } from '../shared/seasons.mjs';
 import type { Manifest, SeasonScope, StatRow } from './types';
@@ -55,6 +55,7 @@ function newestPopulatedSeason(manifest: Manifest | null): SeasonScope {
 export default function App() {
   const manifestState = useAsync(loadManifest, []);
   const manifest = manifestState.data;
+  const theme = useTheme();
 
   const defaults = useMemo<CompareState>(
     () => ({ ...FALLBACK_DEFAULTS, season: newestPopulatedSeason(manifest) }),
@@ -202,7 +203,7 @@ export default function App() {
 
     const colors = seriesColors(
       found.map(({ row }) => (typeof row.teams === 'string' ? row.teams : String(row.abbrev ?? ''))),
-    );
+    ).map((color) => seriesColorForTheme(color, theme));
 
     // The season suffix disambiguates a cross-era comparison ("Kucherov
     // 2017-18" vs. "Kucherov 2018-19"), so it only makes sense relative to
@@ -231,7 +232,17 @@ export default function App() {
     });
 
     return { series: built, missing: absent };
-  }, [datasets, state.picks, state.season, state.cohort, state.kind, state.gameType, metrics.table, manifest]);
+  }, [
+    datasets,
+    state.picks,
+    state.season,
+    state.cohort,
+    state.kind,
+    state.gameType,
+    metrics.table,
+    manifest,
+    theme,
+  ]);
 
   const busy = manifestState.loading || datasetsState.loading;
 

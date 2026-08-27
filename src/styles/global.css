@@ -538,8 +538,7 @@ a {
 
 .axis-key em {
   font-style: normal;
-  color: var(--accent);
-  cursor: help;
+  color: var(--text-muted);
 }
 
 /* ------------------------------------------------------------------ table */

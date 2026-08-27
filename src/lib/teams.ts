@@ -113,6 +113,41 @@ export function teamColor(codes: string | null | undefined, fallbackIndex = 0): 
   );
 }
 
+/** 0 (black) – 1 (white), the WCAG relative-luminance formula. */
+function relativeLuminance(hex: string): number {
+  const full = hex.replace('#', '');
+  const channel = (start: number) => {
+    const c = parseInt(full.slice(start, start + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+}
+
+/** Blend a hex colour toward white by `amount` (0–1). */
+function lighten(hex: string, amount: number): string {
+  const full = hex.replace('#', '');
+  const mixed = [0, 2, 4].map((start) => {
+    const c = parseInt(full.slice(start, start + 2), 16);
+    return Math.round(c + (255 - c) * amount);
+  });
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Real team colours are chosen for a white rink, not a near-black page — half
+ * the league's identity is a navy blue that all but disappears against the
+ * dark theme's background. Lightens a colour just enough to stay visible
+ * there; a colour that already reads fine (an Oilers orange, a Flames red)
+ * passes through untouched.
+ */
+export function seriesColorForTheme(hex: string, theme: 'light' | 'dark'): string {
+  if (theme === 'light') return hex;
+  const luminance = relativeLuminance(hex);
+  const floor = 0.18;
+  if (luminance >= floor) return hex;
+  return lighten(hex, Math.min(0.55, ((floor - luminance) / floor) * 0.6 + 0.15));
+}
+
 /**
  * Pick distinct colours for a set of series. Two Oilers seasons side by side
  * would otherwise be the same orange, so a duplicate falls back to the palette.
