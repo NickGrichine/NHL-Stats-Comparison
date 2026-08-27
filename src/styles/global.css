@@ -254,6 +254,28 @@ a {
   padding: 8px 10px;
 }
 
+/* Without an explicit appearance reset, Chrome and Firefox mostly defer to
+   this file's styling anyway, but Safari keeps its own native control chrome
+   (padding, corner radius, dropdown glyph) regardless — which is why these
+   looked like a different design on Safari specifically. Removing native
+   appearance means drawing the dropdown arrow back in by hand; it's baked
+   into each theme's palette below rather than `--text-muted`, since a CSS
+   custom property can't be read from inside a data-URI background-image. */
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%2394a3b8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 2l4.5 4 4.5-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 7px;
+  padding-right: 30px;
+}
+
+:root[data-theme='light'] .field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%235a6880' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 2l4.5 4 4.5-4'/%3E%3C/svg%3E");
+}
+
 /* Teams have no "All-time career" option, which is the widest one — without
    this, a <select> sized to its own option list shrinks when that option
    disappears, so the field visibly resizes just from switching tabs. */
