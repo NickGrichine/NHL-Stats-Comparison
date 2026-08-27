@@ -32,7 +32,7 @@ const FALLBACK_DEFAULTS: CompareState = {
   kind: 'skaters',
   season: 20242025,
   gameType: 2,
-  norm: 'raw',
+  norm: 'pct',
   cohort: 'pos',
   picks: [],
 };
