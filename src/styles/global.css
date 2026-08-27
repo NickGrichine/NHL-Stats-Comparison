@@ -262,9 +262,15 @@ a {
    into each theme's palette below rather than `--text-muted`, since a CSS
    custom property can't be read from inside a data-URI background-image. */
 .field select {
-  appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
+  appearance: none;
+  /* Safari's UA stylesheet sets its own margin and line-height for form
+     controls that `font: inherit` alone does not fully clear, which is what
+     let the text sit a couple of pixels off from Chrome's rendering of the
+     same declared padding. */
+  margin: 0;
+  line-height: normal;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%2394a3b8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 2l4.5 4 4.5-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
