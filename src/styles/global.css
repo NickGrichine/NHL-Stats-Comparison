@@ -104,7 +104,6 @@ a {
 .tagline {
   margin: 4px 0 0;
   color: var(--text-muted);
-  max-width: 52ch;
 }
 
 .masthead-actions {
@@ -253,6 +252,13 @@ a {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
+}
+
+/* Teams have no "All-time career" option, which is the widest one — without
+   this, a <select> sized to its own option list shrinks when that option
+   disappears, so the field visibly resizes just from switching tabs. */
+.field-season select {
+  min-width: 152px;
 }
 
 .share,

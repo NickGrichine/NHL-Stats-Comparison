@@ -93,7 +93,7 @@ export function Controls({ state, manifest, shareUrl, onChange }: Props) {
         ))}
       </div>
 
-      <label className="field">
+      <label className="field field-season">
         <span>Season</span>
         <select
           value={String(state.season)}
