@@ -81,14 +81,27 @@ export function StatTable({ series, metrics, kind }: Props) {
           {kind !== 'teams' && (
             <tr className="context-row">
               <th scope="row">Team</th>
-              {series.map((entry) => (
-                <td
-                  key={entry.label}
-                  title={teamNames(typeof entry.row.teams === 'string' ? entry.row.teams : null)}
-                >
-                  {String(entry.row.teams ?? '—')}
-                </td>
-              ))}
+              {series.map((entry) => {
+                const fullNames = teamNames(typeof entry.row.teams === 'string' ? entry.row.teams : null);
+                return (
+                  <td key={entry.label}>
+                    {fullNames ? (
+                      // A CSS-driven tooltip, not the native `title` attribute
+                      // — that one left only a bare help-cursor visible unless
+                      // the visitor held still through the browser's own hover
+                      // delay.
+                      <span className="tip" tabIndex={0} aria-label={fullNames}>
+                        {String(entry.row.teams ?? '—')}
+                        <span className="tip-bubble" role="tooltip">
+                          {fullNames}
+                        </span>
+                      </span>
+                    ) : (
+                      (String(entry.row.teams ?? '—'))
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           )}
 
@@ -105,7 +118,12 @@ export function StatTable({ series, metrics, kind }: Props) {
                 return (
                   <tr key={metric.key}>
                     <th scope="row">
-                      <abbr title={metric.label}>{metric.short}</abbr>
+                      <span className="tip" tabIndex={0} aria-label={metric.label}>
+                        <abbr>{metric.short}</abbr>
+                        <span className="tip-bubble" role="tooltip">
+                          {metric.label}
+                        </span>
+                      </span>
                     </th>
                     {series.map((entry, index) => (
                       <td

@@ -607,6 +607,19 @@ a {
   transform: translateX(-50%) translateY(0);
 }
 
+/* Row headers live in the table's narrow first column, right at the page
+   edge — a centered bubble routinely runs off-screen to the left for a
+   label as long as "Game Winning Goals". Anchor from the left instead. */
+.stat-table tbody th .tip-bubble {
+  left: 0;
+  transform: translateY(4px);
+}
+
+.stat-table tbody th .tip:hover .tip-bubble,
+.stat-table tbody th .tip:focus-visible .tip-bubble {
+  transform: translateY(0);
+}
+
 /* ------------------------------------------------------------------ table */
 
 .table-scroll {
@@ -656,7 +669,6 @@ a {
 .stat-table tbody th abbr {
   text-decoration: none;
   border-bottom: 1px dotted var(--border-strong);
-  cursor: help;
 }
 
 .stat-table .group-row th {
