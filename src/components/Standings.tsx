@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { loadDataset } from '../api/datasets';
 import { useAsync } from '../api/useDataset';
 import { fmtInt } from '../lib/format';
+import { teamLogoUrl, teamShortName } from '../lib/teams';
 import type { Manifest, StatRow } from '../types';
 
 /** The NHL marks a team's final regular-season clinch with one of these letters. */
@@ -29,6 +30,25 @@ const COLUMNS: { key: string; label: string; title: string }[] = [
   { key: 'pts', label: 'PTS', title: 'Points' },
 ];
 
+type DivisionGroup = [string, StatRow[]];
+
+/**
+ * The 2020-21 COVID realignment named its divisions after title sponsors
+ * ("Honda West", "MassMutual East") rather than the plain geographic names
+ * the NHL itself used everywhere else that season — trimmed here so the
+ * standings read the same way as every other year's.
+ */
+const DIVISION_NAME_OVERRIDES: Record<string, string> = {
+  'Discover Central': 'Central',
+  'Honda West': 'West',
+  'MassMutual East': 'East',
+  'Scotia North': 'North',
+};
+
+function cleanDivisionName(name: string): string {
+  return DIVISION_NAME_OVERRIDES[name] ?? name;
+}
+
 /**
  * Groups teams by the division/conference structure actually in effect that
  * season. Sorted by conference then division name so realignment eras (the
@@ -36,13 +56,14 @@ const COLUMNS: { key: string; label: string; title: string }[] = [
  * Patrick/Smythe-style splits, and so on) come out in a stable, readable
  * order instead of whatever order teams happened to be fetched in.
  */
-function groupByDivision(rows: StatRow[]): [string, StatRow[]][] {
+function groupByDivision(rows: StatRow[]): DivisionGroup[] {
   const groups = new Map<string, StatRow[]>();
   for (const row of rows) {
-    const key =
+    const key = cleanDivisionName(
       (typeof row.division === 'string' && row.division) ||
-      (typeof row.conference === 'string' && row.conference) ||
-      'League';
+        (typeof row.conference === 'string' && row.conference) ||
+        'League',
+    );
     const list = groups.get(key);
     if (list) list.push(row);
     else groups.set(key, [row]);
@@ -51,16 +72,112 @@ function groupByDivision(rows: StatRow[]): [string, StatRow[]][] {
   const sortKey = (list: StatRow[]) => {
     const first = list[0];
     const conference = typeof first?.conference === 'string' ? first.conference : '';
-    const division = typeof first?.division === 'string' ? first.division : '';
+    const division = typeof first?.division === 'string' ? cleanDivisionName(first.division) : '';
     return `${conference}::${division}`;
   };
 
   return [...groups.entries()].sort(([, a], [, b]) => sortKey(a).localeCompare(sortKey(b)));
 }
 
+/**
+ * Nests division groups under their conference — Western's divisions stacked
+ * above Eastern's — when every division actually belongs to one. Older or
+ * realigned seasons that never had (or don't fully report) a conference layer
+ * fall back to a single flat section, same as before conferences existed.
+ */
+function groupByConference(divisions: DivisionGroup[]): [string, DivisionGroup[]][] | null {
+  const conferenceOf = (group: DivisionGroup) => {
+    const first = group[1][0];
+    return typeof first?.conference === 'string' ? first.conference : null;
+  };
+
+  if (!divisions.every((group) => conferenceOf(group))) return null;
+
+  const byConference = new Map<string, DivisionGroup[]>();
+  for (const group of divisions) {
+    const conference = conferenceOf(group) as string;
+    const list = byConference.get(conference);
+    if (list) list.push(group);
+    else byConference.set(conference, [group]);
+  }
+
+  // The West-first convention this app's audience actually expects; anything
+  // that isn't literally a "West"/"East" conference (Wales, Campbell, ...)
+  // just falls back to alphabetical.
+  return [...byConference.entries()].sort(([a], [b]) => {
+    const westA = /west/i.test(a);
+    const westB = /west/i.test(b);
+    if (westA !== westB) return westA ? -1 : 1;
+    return a.localeCompare(b);
+  });
+}
+
 /** Zero out a prior season's row so its numbers can't be mistaken for real results. */
 function asUnplayed(row: StatRow): StatRow {
   return { ...row, gp: 0, w: 0, l: 0, t: null, otl: 0, pts: 0, ptPct: 0, clinch: null };
+}
+
+/** [1,2,3,4,5] -> [[1,2],[3,4],[5]] — two divisions per row, same shape as a conference section. */
+function chunkPairs<T>(items: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) out.push(items.slice(i, i + 2));
+  return out;
+}
+
+function DivisionTable({ division, teams, showCaption }: { division: string; teams: StatRow[]; showCaption: boolean }) {
+  return (
+    <div className="table-scroll">
+      <table className="stat-table compact standings-table">
+        {showCaption && <caption>{division}</caption>}
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            {COLUMNS.map((col) => (
+              <th key={col.key} scope="col">
+                <span className="tip" tabIndex={0} aria-label={col.title}>
+                  <abbr>{col.label}</abbr>
+                  <span className="tip-bubble" role="tooltip">
+                    {col.title}
+                  </span>
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((row) => {
+            const abbrev = typeof row.abbrev === 'string' ? row.abbrev : null;
+            const logo = teamLogoUrl(abbrev);
+            return (
+              <tr key={row.id} className={clinchRowClass(row.clinch)}>
+                <th scope="row">
+                  <span className="team-cell">
+                    {logo && (
+                      <img
+                        src={logo}
+                        alt=""
+                        className="team-logo"
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    {teamShortName(abbrev) || String(row.name ?? '—')}
+                  </span>
+                </th>
+                <td>{fmtInt(row.gp)}</td>
+                <td>{fmtInt(row.w)}</td>
+                <td>{fmtInt(row.l)}</td>
+                <td>{fmtInt(row.otl)}</td>
+                <td className="is-best">{fmtInt(row.pts)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 /** A single season's final table, built from the same per-team season data the rest of the app compares. */
@@ -96,7 +213,10 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
     return <p className="muted">Standings appear once the season is under way.</p>;
   }
 
-  const groups = groupByDivision(rows);
+  const divisions = groupByDivision(rows);
+  const conferences = groupByConference(divisions);
+  const showCaption = divisions.length > 1;
+
   const hasTrophy = rows.some((row) => row.clinch === 'p');
   const hasPlayoffClinch = rows.some(
     (row) => typeof row.clinch === 'string' && CLINCH_CODES.has(row.clinch) && row.clinch !== 'p',
@@ -109,49 +229,32 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
 
   return (
     <>
-      <div className="standings-grid">
-        {groups.map(([division, teams]) => (
-          <div key={division} className="table-scroll">
-            <table className="stat-table compact standings-table">
-              {groups.length > 1 && <caption>{division}</caption>}
-              <thead>
-                <tr>
-                  <th scope="col">Team</th>
-                  {COLUMNS.map((col) => (
-                    <th key={col.key} scope="col">
-                      <span className="tip" tabIndex={0} aria-label={col.title}>
-                        <abbr>{col.label}</abbr>
-                        <span className="tip-bubble" role="tooltip">
-                          {col.title}
-                        </span>
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((row) => (
-                  <tr key={row.id} className={clinchRowClass(row.clinch)}>
-                    <th scope="row">
-                      <span className="tip" tabIndex={0} aria-label={String(row.name ?? '')}>
-                        {String(row.abbrev ?? row.name ?? '—')}
-                        <span className="tip-bubble" role="tooltip">
-                          {row.name}
-                        </span>
-                      </span>
-                    </th>
-                    <td>{fmtInt(row.gp)}</td>
-                    <td>{fmtInt(row.w)}</td>
-                    <td>{fmtInt(row.l)}</td>
-                    <td>{fmtInt(row.otl)}</td>
-                    <td className="is-best">{fmtInt(row.pts)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {conferences ? (
+        conferences.map(([conference, groups]) => (
+          <div key={conference} className="conference-section">
+            <h3 className="conference-heading">{conference} Conference</h3>
+            <div className="standings-grid">
+              {groups.map(([division, teams]) => (
+                <DivisionTable key={division} division={division} teams={teams} showCaption={showCaption} />
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        ))
+      ) : (
+        // No real conference to group by (a season without that concept at
+        // all, like the geographic-only 2020-21 realignment) — still lay the
+        // divisions out two-per-row, same shape as a conference section,
+        // rather than however many fit across the page in one line.
+        chunkPairs(divisions).map((pair, index) => (
+          <div key={index} className="conference-section">
+            <div className="standings-grid">
+              {pair.map(([division, teams]) => (
+                <DivisionTable key={division} division={division} teams={teams} showCaption={showCaption} />
+              ))}
+            </div>
+          </div>
+        ))
+      )}
       {notStarted && (
         <p className="muted small standings-not-started">The {seasonLabel} season hasn’t started yet</p>
       )}

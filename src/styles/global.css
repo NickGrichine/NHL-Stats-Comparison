@@ -134,6 +134,8 @@ a {
 }
 
 .panel {
+  display: flex;
+  flex-direction: column;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -293,6 +295,10 @@ a {
    `display: flex` still blockifies to the panel's full width otherwise. */
 .standings-season {
   display: inline-flex;
+  /* Its panel is a flex column now (for the radar/statistics height match
+     above), which stretches children to full width by default — opt this
+     one back out so it stays sized to its own content, as it was before. */
+  align-self: flex-start;
   margin-bottom: 14px;
 }
 
@@ -655,6 +661,30 @@ a {
   font-size: 0.9rem;
 }
 
+/* The comparison table can run to 25+ rows across five stat groups — far
+   taller than the radar chart beside it. App.tsx measures the radar panel's
+   real rendered height (ResizeObserver, synchronously on first layout too)
+   and sets it as an explicit `height` on the statistics *panel*; `flex: 1;
+   min-height: 0` here is what lets this box then give up exactly that
+   panel's own chrome (heading, padding) and fill the rest — no max-height
+   guess needed, so it also doesn't leave empty space when the radar panel
+   is taller than any fixed cap would have assumed. Letting the grid itself
+   "stretch to match a sibling" was tried first and did not hold: an
+   auto-sized grid row's own height still ends up driven by this table's
+   full content even with `flex:1; min-height:0` on an auto-height ancestor,
+   so the row — and both panels in it — simply grew to fit the taller side
+   instead of capping it. An explicit pixel height from the outside breaks
+   that feedback loop. The header scrolls away with the rest rather than
+   staying pinned: `position: sticky` on a `<th>` turns out not to track
+   this box's own scroll position reliably once `.table-scroll`'s horizontal
+   overflow is layered on the same element, so it is switched off here rather
+   than shipping a header that silently overlaps the row underneath it. */
+.stat-compare-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .stat-table caption {
   text-align: left;
   padding-bottom: 8px;
@@ -678,6 +708,10 @@ a {
   background: var(--bg-raised);
   font-size: 0.82rem;
   border-bottom: 1px solid var(--border-strong);
+}
+
+.stat-compare-scroll thead th {
+  position: static;
 }
 
 .stat-table tbody th[scope='row'],
@@ -768,6 +802,32 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
+}
+
+.conference-section + .conference-section {
+  margin-top: 22px;
+}
+
+.conference-heading {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.team-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-logo {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 /* Every numeric column shares one width, sized to fit "OTL" — the widest

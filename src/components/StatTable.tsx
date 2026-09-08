@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 
 import { metricsByGroup, type Metric } from '../lib/metrics';
-import { positionName, teamNames } from '../lib/teams';
+import { formatTeamCodes, positionName, teamNames } from '../lib/teams';
 import type { StatRow } from '../types';
 import type { Series } from './RadarCompare';
 
@@ -53,7 +53,7 @@ export function StatTable({ series, metrics, kind }: Props) {
   const groups = metricsByGroup(metrics);
 
   return (
-    <div className="table-scroll">
+    <div className="table-scroll stat-compare-scroll">
       <table className="stat-table">
         <caption className="sr-only">
           Statistical comparison. The strongest value in each row is highlighted.
@@ -82,7 +82,9 @@ export function StatTable({ series, metrics, kind }: Props) {
             <tr className="context-row">
               <th scope="row">Team</th>
               {series.map((entry) => {
-                const fullNames = teamNames(typeof entry.row.teams === 'string' ? entry.row.teams : null);
+                const codes = typeof entry.row.teams === 'string' ? entry.row.teams : null;
+                const fullNames = teamNames(codes);
+                const spaced = formatTeamCodes(codes) || '—';
                 return (
                   <td key={entry.label}>
                     {fullNames ? (
@@ -91,13 +93,13 @@ export function StatTable({ series, metrics, kind }: Props) {
                       // the visitor held still through the browser's own hover
                       // delay.
                       <span className="tip" tabIndex={0} aria-label={fullNames}>
-                        {String(entry.row.teams ?? '—')}
+                        {spaced}
                         <span className="tip-bubble" role="tooltip">
                           {fullNames}
                         </span>
                       </span>
                     ) : (
-                      (String(entry.row.teams ?? '—'))
+                      spaced
                     )}
                   </td>
                 );
@@ -126,10 +128,7 @@ export function StatTable({ series, metrics, kind }: Props) {
                       </span>
                     </th>
                     {series.map((entry, index) => (
-                      <td
-                        key={entry.label}
-                        className={index === winner ? 'is-best' : undefined}
-                      >
+                      <td key={entry.label} className={index === winner ? 'is-best' : undefined}>
                         {metric.format(entry.row[metric.key])}
                       </td>
                     ))}

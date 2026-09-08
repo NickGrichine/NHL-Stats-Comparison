@@ -29,6 +29,8 @@ export interface Pick {
   id: number;
   /** null = floats with `state.season`; a value = pinned to that season. */
   season: SeasonScope | null;
+  /** The season this pick was first added at — where "un-following" returns it. */
+  originalSeason: SeasonScope;
 }
 
 export interface CompareState {
@@ -74,7 +76,8 @@ function parseState(search: string, defaults: CompareState): CompareState {
   const gameType = params.get('gt') === '3' ? 3 : 2;
   const normRaw = params.get('norm');
   const norm = normRaw === 'pct' || normRaw === 'raw' ? normRaw : defaults.norm;
-  const cohort = params.get('cohort') === 'all' ? 'all' : 'pos';
+  const cohortRaw = params.get('cohort');
+  const cohort = cohortRaw === 'pos' || cohortRaw === 'all' ? cohortRaw : defaults.cohort;
 
   const picks = (params.get('sel') ?? '')
     .split(',')
@@ -84,7 +87,12 @@ function parseState(search: string, defaults: CompareState): CompareState {
     .map((token) => {
       const [idPart, seasonPart] = token.split('@');
       const id = Number(idPart);
-      return Number.isFinite(id) ? { id, season: parsePinnedSeason(seasonPart) } : null;
+      if (!Number.isFinite(id)) return null;
+      const pinned = parsePinnedSeason(seasonPart);
+      // A freshly-loaded floating pick has no recorded "home" season yet —
+      // treat wherever it's floating right now as that home, same as a pick
+      // that was just added.
+      return { id, season: pinned, originalSeason: pinned ?? season };
     })
     .filter((pick): pick is Pick => pick !== null);
 
@@ -96,11 +104,11 @@ function serialise(state: CompareState): string {
   params.set('kind', state.kind);
   params.set('season', String(state.season));
   if (state.gameType !== 2) params.set('gt', String(state.gameType));
-  // Always spelled out (unlike gameType/cohort's omit-if-default), because
-  // this one has no single static default to omit against — the app's
-  // fallback lives in FALLBACK_DEFAULTS and could change again.
+  // Always spelled out (unlike gameType's omit-if-default), because these two
+  // have no single static default to omit against — the app's fallback lives
+  // in FALLBACK_DEFAULTS and could change again.
   params.set('norm', state.norm);
-  if (state.cohort !== 'pos') params.set('cohort', state.cohort);
+  params.set('cohort', state.cohort);
 
   if (state.picks.length > 0) {
     params.set(
@@ -173,7 +181,10 @@ export function useCompareState(defaults: CompareState) {
           (p) => p.id === id && effectiveSeason(p, previous.season) === pinnedSeason,
         );
         if (isDuplicate) return previous;
-        const next = { ...previous, picks: [...previous.picks, { id, season: pinnedSeason }] };
+        const next = {
+          ...previous,
+          picks: [...previous.picks, { id, season: pinnedSeason, originalSeason: pinnedSeason }],
+        };
         window.history.replaceState(null, '', `${window.location.pathname}${serialise(next)}`);
         return next;
       });
@@ -190,16 +201,17 @@ export function useCompareState(defaults: CompareState) {
   }, []);
 
   /**
-   * Flip one pick between pinned and floating. Pinning freezes it at
-   * whatever season it is showing right now — not "back to where it was
-   * added" — since that is the season the visitor was just looking at when
-   * they decided to lock it in place.
+   * Flip one pick between pinned and floating. Un-following returns it to the
+   * season it was originally added at — not wherever the page happens to be
+   * browsing at the moment you flip it back — so toggling "live" on and off
+   * to check a player against a couple of other seasons doesn't leave the
+   * pick stranded somewhere new.
    */
   const toggleFollow = useCallback((index: number) => {
     setState((previous) => {
       const pick = previous.picks[index];
       if (!pick) return previous;
-      const nextSeason = pick.season === null ? previous.season : null;
+      const nextSeason = pick.season === null ? pick.originalSeason : null;
       const next = {
         ...previous,
         picks: previous.picks.map((p, i) => (i === index ? { ...p, season: nextSeason } : p)),

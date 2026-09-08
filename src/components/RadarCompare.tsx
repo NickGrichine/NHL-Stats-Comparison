@@ -140,6 +140,11 @@ export function RadarCompare({ series, metrics, norm }: Props) {
         // own legend layout for a plain dot-and-label list.
         legend: { display: false },
         tooltip: {
+          // Left to its default, the box sits right where the cursor already
+          // is, so the pointer itself covers the first line of text. Forcing
+          // it above the point, with some breathing room, keeps it clear.
+          yAlign: 'bottom',
+          caretPadding: 12,
           callbacks: {
             // The axis carries an abbreviation to keep the chart readable;
             // the tooltip is where the full stat name and the real number live.

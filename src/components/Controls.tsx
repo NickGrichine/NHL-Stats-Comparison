@@ -129,8 +129,8 @@ export function Controls({ state, manifest, shareUrl, onChange }: Props) {
           value={state.norm}
           onChange={(event) => onChange({ norm: event.target.value as Normalisation })}
         >
-          <option value="pct">Percentile (era-adjusted)</option>
           <option value="raw">Raw range</option>
+          <option value="pct">Percentile (era-adjusted)</option>
         </select>
       </label>
 
@@ -141,8 +141,8 @@ export function Controls({ state, manifest, shareUrl, onChange }: Props) {
             value={state.cohort}
             onChange={(event) => onChange({ cohort: event.target.value as CohortMode })}
           >
-            <option value="pos">Same position</option>
             <option value="all">Whole league</option>
+            <option value="pos">Same position</option>
           </select>
         </label>
       )}

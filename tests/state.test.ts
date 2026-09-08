@@ -29,7 +29,9 @@ describe('URL state', () => {
       gameType: 3,
       norm: 'raw',
       cohort: 'all',
-      picks: [{ id: 8449001, season: null }],
+      // No recorded "home" season yet — a fresh floating pick treats the
+      // page season it loaded on as that home.
+      picks: [{ id: 8449001, season: null, originalSeason: 19851986 }],
     });
   });
 
@@ -38,8 +40,8 @@ describe('URL state', () => {
     const state = parseState('?season=20242025&sel=8478402,8447400@19851986', defaults);
 
     expect(state.picks).toEqual([
-      { id: 8478402, season: null },
-      { id: 8447400, season: 19851986 },
+      { id: 8478402, season: null, originalSeason: 20242025 },
+      { id: 8447400, season: 19851986, originalSeason: 19851986 },
     ]);
   });
 
@@ -62,9 +64,9 @@ describe('URL state', () => {
   });
 
   it('serialises a floating pick as a bare id, so a shared link stays short', () => {
-    expect(serialise({ ...defaults, picks: [{ id: 7, season: null }] })).toBe(
-      '?kind=skaters&season=20242025&norm=pct&sel=7',
-    );
+    expect(
+      serialise({ ...defaults, picks: [{ id: 7, season: null, originalSeason: 20242025 }] }),
+    ).toBe('?kind=skaters&season=20242025&norm=pct&cohort=pos&sel=7');
   });
 
   it('always spells out a pin, even one that matches the page season', () => {
@@ -74,8 +76,8 @@ describe('URL state', () => {
     const query = serialise({
       ...defaults,
       picks: [
-        { id: 7, season: 20242025 },
-        { id: 8, season: 19851986 },
+        { id: 7, season: 20242025, originalSeason: 20242025 },
+        { id: 8, season: 19851986, originalSeason: 19851986 },
       ],
     });
 
@@ -89,24 +91,29 @@ describe('URL state', () => {
       gameType: 3,
       norm: 'raw',
       cohort: 'all',
-      picks: [{ id: 19, season: 19671968 }],
+      picks: [{ id: 19, season: 19671968, originalSeason: 19671968 }],
     };
 
     expect(parseState(serialise(original), defaults)).toEqual(original);
   });
 
   it('round-trips a floating pick', () => {
-    const original: CompareState = { ...defaults, picks: [{ id: 5, season: null }] };
+    const original: CompareState = {
+      ...defaults,
+      picks: [{ id: 5, season: null, originalSeason: defaults.season }],
+    };
     expect(parseState(serialise(original), defaults)).toEqual(original);
   });
 });
 
 describe('effectiveSeason', () => {
   it('follows the page season when floating', () => {
-    expect(effectiveSeason({ id: 1, season: null }, 20252026)).toBe(20252026);
+    expect(effectiveSeason({ id: 1, season: null, originalSeason: 19851986 }, 20252026)).toBe(20252026);
   });
 
   it('stays put when pinned, regardless of the page season', () => {
-    expect(effectiveSeason({ id: 1, season: 19851986 }, 20252026)).toBe(19851986);
+    expect(effectiveSeason({ id: 1, season: 19851986, originalSeason: 19851986 }, 20252026)).toBe(
+      19851986,
+    );
   });
 });

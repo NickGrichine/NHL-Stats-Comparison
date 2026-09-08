@@ -10,72 +10,74 @@
 
 interface TeamInfo {
   name: string;
+  /** The name minus its city — "Canadiens", not "Montreal Canadiens". */
+  short: string;
   color: string;
   /** Set for clubs that no longer exist, so the UI can say so. */
   defunct?: boolean;
 }
 
 export const TEAMS: Record<string, TeamInfo> = {
-  ANA: { name: 'Anaheim Ducks', color: '#F47A38' },
-  BOS: { name: 'Boston Bruins', color: '#FFB81C' },
-  BUF: { name: 'Buffalo Sabres', color: '#003087' },
-  CAR: { name: 'Carolina Hurricanes', color: '#CE1126' },
-  CBJ: { name: 'Columbus Blue Jackets', color: '#002654' },
-  CGY: { name: 'Calgary Flames', color: '#D2001C' },
-  CHI: { name: 'Chicago Blackhawks', color: '#CF0A2C' },
-  COL: { name: 'Colorado Avalanche', color: '#6F263D' },
-  DAL: { name: 'Dallas Stars', color: '#006847' },
-  DET: { name: 'Detroit Red Wings', color: '#CE1126' },
-  EDM: { name: 'Edmonton Oilers', color: '#FF4C00' },
-  FLA: { name: 'Florida Panthers', color: '#C8102E' },
-  LAK: { name: 'Los Angeles Kings', color: '#A2AAAD' },
-  MIN: { name: 'Minnesota Wild', color: '#154734' },
-  MTL: { name: 'Montreal Canadiens', color: '#AF1E2D' },
-  NJD: { name: 'New Jersey Devils', color: '#CE1126' },
-  NSH: { name: 'Nashville Predators', color: '#FFB81C' },
-  NYI: { name: 'New York Islanders', color: '#00539B' },
-  NYR: { name: 'New York Rangers', color: '#0038A8' },
-  OTT: { name: 'Ottawa Senators', color: '#C8102E' },
-  PHI: { name: 'Philadelphia Flyers', color: '#F74902' },
-  PIT: { name: 'Pittsburgh Penguins', color: '#FCB514' },
-  SEA: { name: 'Seattle Kraken', color: '#99D9D9' },
-  SJS: { name: 'San Jose Sharks', color: '#006D75' },
-  STL: { name: 'St. Louis Blues', color: '#002F87' },
-  TBL: { name: 'Tampa Bay Lightning', color: '#002868' },
-  TOR: { name: 'Toronto Maple Leafs', color: '#00205B' },
-  UTA: { name: 'Utah Mammoth', color: '#71AFE5' },
-  VAN: { name: 'Vancouver Canucks', color: '#00205B' },
-  VGK: { name: 'Vegas Golden Knights', color: '#B4975A' },
-  WPG: { name: 'Winnipeg Jets', color: '#041E42' },
-  WSH: { name: 'Washington Capitals', color: '#C8102E' },
+  ANA: { name: 'Anaheim Ducks', short: 'Ducks', color: '#F47A38' },
+  BOS: { name: 'Boston Bruins', short: 'Bruins', color: '#FFB81C' },
+  BUF: { name: 'Buffalo Sabres', short: 'Sabres', color: '#003087' },
+  CAR: { name: 'Carolina Hurricanes', short: 'Hurricanes', color: '#CE1126' },
+  CBJ: { name: 'Columbus Blue Jackets', short: 'Blue Jackets', color: '#002654' },
+  CGY: { name: 'Calgary Flames', short: 'Flames', color: '#D2001C' },
+  CHI: { name: 'Chicago Blackhawks', short: 'Blackhawks', color: '#CF0A2C' },
+  COL: { name: 'Colorado Avalanche', short: 'Avalanche', color: '#6F263D' },
+  DAL: { name: 'Dallas Stars', short: 'Stars', color: '#006847' },
+  DET: { name: 'Detroit Red Wings', short: 'Red Wings', color: '#CE1126' },
+  EDM: { name: 'Edmonton Oilers', short: 'Oilers', color: '#FF4C00' },
+  FLA: { name: 'Florida Panthers', short: 'Panthers', color: '#C8102E' },
+  LAK: { name: 'Los Angeles Kings', short: 'Kings', color: '#A2AAAD' },
+  MIN: { name: 'Minnesota Wild', short: 'Wild', color: '#154734' },
+  MTL: { name: 'Montreal Canadiens', short: 'Canadiens', color: '#AF1E2D' },
+  NJD: { name: 'New Jersey Devils', short: 'Devils', color: '#CE1126' },
+  NSH: { name: 'Nashville Predators', short: 'Predators', color: '#FFB81C' },
+  NYI: { name: 'New York Islanders', short: 'Islanders', color: '#00539B' },
+  NYR: { name: 'New York Rangers', short: 'Rangers', color: '#0038A8' },
+  OTT: { name: 'Ottawa Senators', short: 'Senators', color: '#C8102E' },
+  PHI: { name: 'Philadelphia Flyers', short: 'Flyers', color: '#F74902' },
+  PIT: { name: 'Pittsburgh Penguins', short: 'Penguins', color: '#FCB514' },
+  SEA: { name: 'Seattle Kraken', short: 'Kraken', color: '#99D9D9' },
+  SJS: { name: 'San Jose Sharks', short: 'Sharks', color: '#006D75' },
+  STL: { name: 'St. Louis Blues', short: 'Blues', color: '#002F87' },
+  TBL: { name: 'Tampa Bay Lightning', short: 'Lightning', color: '#002868' },
+  TOR: { name: 'Toronto Maple Leafs', short: 'Maple Leafs', color: '#00205B' },
+  UTA: { name: 'Utah Mammoth', short: 'Mammoth', color: '#71AFE5' },
+  VAN: { name: 'Vancouver Canucks', short: 'Canucks', color: '#00205B' },
+  VGK: { name: 'Vegas Golden Knights', short: 'Golden Knights', color: '#B4975A' },
+  WPG: { name: 'Winnipeg Jets', short: 'Jets', color: '#041E42' },
+  WSH: { name: 'Washington Capitals', short: 'Capitals', color: '#C8102E' },
 
   // Relocated, renamed or folded.
-  ARI: { name: 'Arizona Coyotes', color: '#8C2633', defunct: true },
-  PHX: { name: 'Phoenix Coyotes', color: '#8C2633', defunct: true },
-  ATL: { name: 'Atlanta Thrashers', color: '#5C88DA', defunct: true },
-  AFM: { name: 'Atlanta Flames', color: '#D2001C', defunct: true },
-  HFD: { name: 'Hartford Whalers', color: '#00843D', defunct: true },
-  QUE: { name: 'Quebec Nordiques', color: '#0072CE', defunct: true },
-  WIN: { name: 'Winnipeg Jets (1979-96)', color: '#041E42', defunct: true },
-  MNS: { name: 'Minnesota North Stars', color: '#006847', defunct: true },
-  CGS: { name: 'California Golden Seals', color: '#006847', defunct: true },
-  OAK: { name: 'Oakland Seals', color: '#006847', defunct: true },
-  CLE: { name: 'Cleveland Barons', color: '#8C2633', defunct: true },
-  KCS: { name: 'Kansas City Scouts', color: '#0072CE', defunct: true },
-  CLR: { name: 'Colorado Rockies', color: '#8C2633', defunct: true },
-  MMR: { name: 'Montreal Maroons', color: '#8C2633', defunct: true },
-  MWN: { name: 'Montreal Wanderers', color: '#AF1E2D', defunct: true },
-  SEN: { name: 'Ottawa Senators (1917-34)', color: '#C8102E', defunct: true },
-  HAM: { name: 'Hamilton Tigers', color: '#FFB81C', defunct: true },
-  PIR: { name: 'Pittsburgh Pirates', color: '#FCB514', defunct: true },
-  QUA: { name: 'Philadelphia Quakers', color: '#F74902', defunct: true },
-  DCG: { name: 'Detroit Cougars', color: '#CE1126', defunct: true },
-  DFL: { name: 'Detroit Falcons', color: '#CE1126', defunct: true },
-  NYA: { name: 'New York Americans', color: '#0038A8', defunct: true },
-  BRK: { name: 'Brooklyn Americans', color: '#0038A8', defunct: true },
-  SLE: { name: 'St. Louis Eagles', color: '#002F87', defunct: true },
-  TAN: { name: 'Toronto Arenas', color: '#00205B', defunct: true },
-  TSP: { name: 'Toronto St. Patricks', color: '#00843D', defunct: true },
+  ARI: { name: 'Arizona Coyotes', short: 'Coyotes', color: '#8C2633', defunct: true },
+  PHX: { name: 'Phoenix Coyotes', short: 'Coyotes', color: '#8C2633', defunct: true },
+  ATL: { name: 'Atlanta Thrashers', short: 'Thrashers', color: '#5C88DA', defunct: true },
+  AFM: { name: 'Atlanta Flames', short: 'Flames', color: '#D2001C', defunct: true },
+  HFD: { name: 'Hartford Whalers', short: 'Whalers', color: '#00843D', defunct: true },
+  QUE: { name: 'Quebec Nordiques', short: 'Nordiques', color: '#0072CE', defunct: true },
+  WIN: { name: 'Winnipeg Jets (1979-96)', short: 'Jets', color: '#041E42', defunct: true },
+  MNS: { name: 'Minnesota North Stars', short: 'North Stars', color: '#006847', defunct: true },
+  CGS: { name: 'California Golden Seals', short: 'Golden Seals', color: '#006847', defunct: true },
+  OAK: { name: 'Oakland Seals', short: 'Seals', color: '#006847', defunct: true },
+  CLE: { name: 'Cleveland Barons', short: 'Barons', color: '#8C2633', defunct: true },
+  KCS: { name: 'Kansas City Scouts', short: 'Scouts', color: '#0072CE', defunct: true },
+  CLR: { name: 'Colorado Rockies', short: 'Rockies', color: '#8C2633', defunct: true },
+  MMR: { name: 'Montreal Maroons', short: 'Maroons', color: '#8C2633', defunct: true },
+  MWN: { name: 'Montreal Wanderers', short: 'Wanderers', color: '#AF1E2D', defunct: true },
+  SEN: { name: 'Ottawa Senators (1917-34)', short: 'Senators', color: '#C8102E', defunct: true },
+  HAM: { name: 'Hamilton Tigers', short: 'Tigers', color: '#FFB81C', defunct: true },
+  PIR: { name: 'Pittsburgh Pirates', short: 'Pirates', color: '#FCB514', defunct: true },
+  QUA: { name: 'Philadelphia Quakers', short: 'Quakers', color: '#F74902', defunct: true },
+  DCG: { name: 'Detroit Cougars', short: 'Cougars', color: '#CE1126', defunct: true },
+  DFL: { name: 'Detroit Falcons', short: 'Falcons', color: '#CE1126', defunct: true },
+  NYA: { name: 'New York Americans', short: 'Americans', color: '#0038A8', defunct: true },
+  BRK: { name: 'Brooklyn Americans', short: 'Americans', color: '#0038A8', defunct: true },
+  SLE: { name: 'St. Louis Eagles', short: 'Eagles', color: '#002F87', defunct: true },
+  TAN: { name: 'Toronto Arenas', short: 'Arenas', color: '#00205B', defunct: true },
+  TSP: { name: 'Toronto St. Patricks', short: 'St. Patricks', color: '#00843D', defunct: true },
 };
 
 /** Fallback palette for entities with no known team colour. */
@@ -85,6 +87,23 @@ const SERIES_COLORS = ['#4F9CF9', '#F2545B', '#3DBE8B', '#F2B441', '#9B7BF7', '#
 export function teamName(code: string | null | undefined): string {
   if (!code) return '';
   return TEAMS[code.trim().toUpperCase()]?.name ?? code;
+}
+
+/** "MTL" -> "Canadiens" — the name minus its city, for a compact team column. */
+export function teamShortName(code: string | null | undefined): string {
+  if (!code) return '';
+  const trimmed = code.trim().toUpperCase();
+  return TEAMS[trimmed]?.short ?? trimmed;
+}
+
+/** "EDM,PIT" -> "EDM, PIT" — the raw multi-team code list, lightly spaced for reading. */
+export function formatTeamCodes(codes: string | null | undefined): string {
+  if (!codes) return '';
+  return String(codes)
+    .split(/[,\s]+/)
+    .map((code) => code.trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 /** "COL, CAR, DAL" -> "Colorado Avalanche, Carolina Hurricanes, Dallas Stars" */

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Controls } from './components/Controls';
 import { EntityPicker } from './components/EntityPicker';
@@ -32,8 +32,8 @@ const FALLBACK_DEFAULTS: CompareState = {
   kind: 'skaters',
   season: 20242025,
   gameType: 2,
-  norm: 'pct',
-  cohort: 'pos',
+  norm: 'raw',
+  cohort: 'all',
   picks: [],
 };
 
@@ -65,6 +65,30 @@ export default function App() {
   const { state, update, addPick, removePick, toggleFollow, shareUrl } = useCompareState(defaults);
   const indexState = useAsync(loadPlayerIndex, []);
   const franchiseState = useAsync(loadFranchiseIndex, []);
+
+  // The statistics table can run to 25+ rows — far taller than the radar
+  // chart beside it. Rather than guess a height in CSS, measure the radar
+  // panel's actual rendered height and pin the statistics panel to match it,
+  // so the table scrolls internally instead of stretching the page past the
+  // chart.
+  const radarPanelRef = useRef<HTMLDivElement>(null);
+  const [radarPanelHeight, setRadarPanelHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const node = radarPanelRef.current;
+    if (!node) return;
+    // `getBoundingClientRect` (not the observer entry's `contentRect`) so
+    // this is the same border-box height that `height: Npx` — set on the
+    // statistics panel below, under this app's `box-sizing: border-box`
+    // reset — will actually match. Measured once synchronously right away
+    // (a layout effect, not a plain one, so this runs before the browser
+    // paints) rather than waiting on the observer's own first callback,
+    // which otherwise left the table briefly uncapped — long enough to see
+    // — on first load.
+    setRadarPanelHeight(node.getBoundingClientRect().height);
+    const observer = new ResizeObserver(() => setRadarPanelHeight(node.getBoundingClientRect().height));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // A pick with no row for its season (browsed outside a player's career, or
   // pinned somewhere they never played) still deserves a name on its chip —
@@ -289,7 +313,7 @@ export default function App() {
         <div>
           <h1>NHL Stats Comparison</h1>
           <p className="tagline">
-            Every skater, goalie and team since 1917-18, compared on an era-adjusted scale.
+            Compare every skater, goalie, or team since 1917 on a raw or era-adjusted scale.
           </p>
         </div>
         <div className="masthead-actions">
@@ -363,12 +387,15 @@ export default function App() {
       )}
 
       <section className="compare">
-        <div className="panel">
-          <h2>Radar</h2>
+        <div className="panel" ref={radarPanelRef}>
+          <h2>Radar chart</h2>
           <RadarCompare series={series} metrics={metrics.radar} norm={state.norm} />
         </div>
 
-        <div className="panel">
+        <div
+          className="panel"
+          style={radarPanelHeight && series.length > 0 ? { height: radarPanelHeight } : undefined}
+        >
           <h2>Statistics</h2>
           <StatTable series={series} metrics={metrics.table} kind={state.kind} />
         </div>
