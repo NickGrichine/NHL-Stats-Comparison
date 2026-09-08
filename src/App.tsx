@@ -374,14 +374,11 @@ export default function App() {
         </div>
       </section>
 
-      <section className="panel">
-        <h2>Today</h2>
-        <Scoreboard />
-      </section>
+      <Scoreboard />
 
       <section className="panel">
         <h2>Standings</h2>
-        <Standings />
+        <Standings manifest={manifest} />
       </section>
 
       <footer className="footer">
