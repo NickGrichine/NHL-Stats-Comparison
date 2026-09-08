@@ -104,17 +104,18 @@ async function loadSeasons() {
 }
 
 /**
- * Which seasons had divisions at all, and the date their standings were
- * final — the NHL's own standings-by-date endpoint groups teams by whatever
- * division/conference structure was actually in effect that season, so this
- * is the one source that gets historical realignments right for free.
+ * The date each season's standings became final (or, lacking that, when they
+ * started) — the NHL's own standings-by-date endpoint is the one source that
+ * gets a season's real division/conference structure *and* every team's
+ * logo exactly as it looked that year right for free, historical
+ * realignments and rebrands included.
  */
 async function loadStandingsSeasonMeta() {
   const payload = await fetchJson(`${WEB_BASE}/standings-season`, {
     label: 'standings season list',
   });
   const rows = Array.isArray(payload?.seasons) ? payload.seasons : [];
-  /** @type {Map<number, { standingsStart: string|null, standingsEnd: string|null, divisionsInUse: boolean }>} */
+  /** @type {Map<number, { standingsStart: string|null, standingsEnd: string|null }>} */
   const map = new Map();
   for (const row of rows) {
     const id = Number(row.id);
@@ -122,7 +123,6 @@ async function loadStandingsSeasonMeta() {
     map.set(id, {
       standingsStart: row.standingsStart ?? null,
       standingsEnd: row.standingsEnd ?? null,
-      divisionsInUse: Boolean(row.divisionsInUse),
     });
   }
   return map;
@@ -131,7 +131,14 @@ async function loadStandingsSeasonMeta() {
 const divisionMapCache = new Map();
 
 /**
- * teamAbbrev -> that season's division/conference and clinch status.
+ * teamAbbrev -> that season's division/conference, clinch status, and — the
+ * reason this isn't gated on whether the season even had divisions — the
+ * team's logo exactly as it looked that year. The NHL's asset CDN only hosts
+ * a team's *current* crest under its bare tricode, but the standings-by-date
+ * payload gives each team a `teamLogo` URL scoped to the exact era that
+ * design was used (e.g. `MMR_19251926-19341935`), which is what lets a
+ * fully defunct club like the Montreal Maroons still get its own real logo
+ * instead of a modern stand-in or a plain monogram.
  *
  * A finished season is fetched once from its final standings date and cached
  * forever — that snapshot can never change. A season that has started but not
@@ -139,8 +146,8 @@ const divisionMapCache = new Map();
  * reads `/standings/now`, so division alignment and clinches — Presidents'
  * Trophy, division, conference, wild card — appear and firm up live as the
  * season actually plays out, rather than waiting for it to be over. A season
- * that has not started yet, or never had divisions, returns null, which the
- * frontend renders as one flat league table with no clinch highlighting.
+ * that has not started yet returns null, which the frontend borrows the
+ * prior season's row for instead.
  *
  * `divisionSequence`/`conferenceSequence` in the raw payload are each team's
  * *rank within* that group, not the group's own order — useless for sorting
@@ -152,7 +159,7 @@ async function getDivisionMap(seasonId, standingsMeta) {
   const info = standingsMeta.get(seasonId);
   let map = null;
 
-  if (info?.divisionsInUse) {
+  if (info) {
     const endTime = info.standingsEnd ? Date.parse(info.standingsEnd) : NaN;
     const startTime = info.standingsStart ? Date.parse(info.standingsStart) : NaN;
     const finished = Number.isFinite(endTime) && endTime <= Date.now();
@@ -171,6 +178,7 @@ async function getDivisionMap(seasonId, standingsMeta) {
             division: row.divisionName ?? null,
             conference: row.conferenceName ?? null,
             clinch: row.clinchIndicator ?? null,
+            logo: row.teamLogo ?? null,
           });
         }
       } catch (error) {
@@ -237,6 +245,7 @@ async function buildSlice(seasonId, kind, gameType, context) {
       record.division = info?.division ?? null;
       record.conference = info?.conference ?? null;
       record.clinch = info?.clinch ?? null;
+      record.logo = info?.logo ?? null;
     }
     return record;
   });

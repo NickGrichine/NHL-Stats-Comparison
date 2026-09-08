@@ -392,10 +392,7 @@ export default function App() {
           <RadarCompare series={series} metrics={metrics.radar} norm={state.norm} />
         </div>
 
-        <div
-          className="panel"
-          style={radarPanelHeight && series.length > 0 ? { height: radarPanelHeight } : undefined}
-        >
+        <div className="panel" style={radarPanelHeight ? { height: radarPanelHeight } : undefined}>
           <h2>Statistics</h2>
           <StatTable series={series} metrics={metrics.table} kind={state.kind} />
         </div>

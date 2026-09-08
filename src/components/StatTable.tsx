@@ -48,7 +48,13 @@ function contextCell(row: StatRow, kind: string): string {
 }
 
 export function StatTable({ series, metrics, kind }: Props) {
-  if (series.length === 0) return null;
+  if (series.length === 0) {
+    return (
+      <div className="stat-compare-scroll stat-empty">
+        <p>Pick at least one player, goalie or team to see the statistics.</p>
+      </div>
+    );
+  }
 
   const groups = metricsByGroup(metrics);
 

@@ -685,6 +685,20 @@ a {
   overflow-y: auto;
 }
 
+/* Empty state, matched to `.radar-empty` so the two panels read as one pair
+   even with nothing picked yet — `flex: 1` (inherited above) is what lets it
+   fill whatever height App.tsx pins the panel to, rather than the fixed
+   height that box uses for itself. */
+.stat-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  padding: 0 24px;
+}
+
 .stat-table caption {
   text-align: left;
   padding-bottom: 8px;
@@ -823,11 +837,49 @@ a {
   gap: 8px;
 }
 
+/* The fixed frame every crest sits in, real or fallback, so the *box* is
+   always the same size — `overflow: hidden` is what makes the zoom below
+   actually crop instead of spilling out of it. */
 .team-logo {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* NHL crest SVGs share one fixed canvas size across every era, but how much
+   of it each design actually fills varies a lot — a older, plainer mark
+   commonly fills most of it, while some current circular logos leave a lot
+   of padding around a smaller inner badge, so the *box* being equal doesn't
+   make the *artwork* read as equal. Zooming in past 100% and letting the
+   frame's `overflow: hidden` crop the excess brings the small ones back up
+   to size; already-full logos (Vegas' shield, say) just lose a sliver of
+   their outer edge, which reads better than the alternative of some crests
+   looking like a coin and others a stamp. */
+.team-logo-img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  transform: scale(1.4);
+}
+
+/* For the handful of long-folded franchises with no logo to redirect to —
+   see `teamLogoUrl` — so the row gets a real, team-coloured marker instead
+   of empty space where a crest would otherwise be. */
+.team-logo-fallback {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
 
 /* Every numeric column shares one width, sized to fit "OTL" — the widest

@@ -22,9 +22,11 @@ This is a full-stack side project built to explore an interesting data problem: 
 
 Pick any season back to 1917-18 and the standings redraw themselves in whatever structure the NHL actually used that year — not today's format projected backward. Modern seasons split into their real conferences and divisions with team logos; older or one-off formats (the Original Six era with no divisions at all, the COVID-shortened 2020-21 season's four geographic groupings) fall back to whatever shape that season actually had. Rows highlight green for a clinched playoff spot and gold for the Presidents' Trophy, with a legend explaining both — and picking the season that hasn't started yet shows last year's lineup at 0-0-0 with a note, rather than an empty page.
 
+![Screenshot of the scoreboard showing the next scheduled game day outside the season](docs/scoreboard-screenshot.png)
+
 ### Today's games
 
-A scoreboard above the standings shows today's games, refreshed hourly straight from the NHL's live schedule feed — scores update automatically while games are in progress. Outside the season (the off-season, or a gap day with nothing scheduled), it shows the next date that actually has games instead of leaving the section blank.
+A scoreboard above the standings shows today's games, refreshed hourly straight from the NHL's live schedule feed — scores update automatically while games are in progress. Outside the season (the off-season, or a gap day with nothing scheduled, as above), it shows the next date that actually has games instead of leaving the section blank.
 
 ## Tech stack
 

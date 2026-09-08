@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { loadDataset } from '../api/datasets';
 import { useAsync } from '../api/useDataset';
 import { fmtInt } from '../lib/format';
-import { teamLogoUrl, teamShortName } from '../lib/teams';
+import { teamColor, teamLogoUrl, teamShortName } from '../lib/teams';
 import type { Manifest, StatRow } from '../types';
 
 /** The NHL marks a team's final regular-season clinch with one of these letters. */
@@ -124,6 +124,59 @@ function chunkPairs<T>(items: T[]): T[][] {
   return out;
 }
 
+/**
+ * A team's crest exactly as it looked that season — the Rockies keep the
+ * Rockies' own logo rather than showing up as the Devils they later became,
+ * and a 1921 Canadiens row gets 1921's logo, not 2025's. `seasonLogo` comes
+ * straight off that season's own standings data (season-scoped, per-team);
+ * `teamLogoUrl(abbrev)` — today's crest, redirected through a defunct team's
+ * modern successor — is only a fallback for the rare row without one, and a
+ * colour-coded monogram after that for the handful of long-folded franchises
+ * (the Montreal Maroons, the original Ottawa Senators) with no current team
+ * to fall back to either. Every row ends up with *something*, never a blank.
+ */
+function TeamLogo({ abbrev, seasonLogo }: { abbrev: string | null; seasonLogo: string | null }) {
+  const [stage, setStage] = useState<'season' | 'current' | 'monogram'>(seasonLogo ? 'season' : 'current');
+
+  if (stage === 'season' && seasonLogo) {
+    return (
+      <span className="team-logo">
+        <img
+          src={seasonLogo}
+          alt=""
+          className="team-logo-img"
+          loading="lazy"
+          onError={() => setStage('current')}
+        />
+      </span>
+    );
+  }
+
+  const currentLogo = stage !== 'monogram' ? teamLogoUrl(abbrev) : null;
+  if (currentLogo) {
+    return (
+      <span className="team-logo">
+        <img
+          src={currentLogo}
+          alt=""
+          className="team-logo-img"
+          loading="lazy"
+          onError={() => setStage('monogram')}
+        />
+      </span>
+    );
+  }
+
+  const initial = teamShortName(abbrev).charAt(0) || '?';
+  return (
+    <span className="team-logo">
+      <span className="team-logo-fallback" style={{ background: teamColor(abbrev) }} aria-hidden="true">
+        {initial}
+      </span>
+    </span>
+  );
+}
+
 function DivisionTable({ division, teams, showCaption }: { division: string; teams: StatRow[]; showCaption: boolean }) {
   return (
     <div className="table-scroll">
@@ -147,22 +200,12 @@ function DivisionTable({ division, teams, showCaption }: { division: string; tea
         <tbody>
           {teams.map((row) => {
             const abbrev = typeof row.abbrev === 'string' ? row.abbrev : null;
-            const logo = teamLogoUrl(abbrev);
+            const seasonLogo = typeof row.logo === 'string' ? row.logo : null;
             return (
               <tr key={row.id} className={clinchRowClass(row.clinch)}>
                 <th scope="row">
                   <span className="team-cell">
-                    {logo && (
-                      <img
-                        src={logo}
-                        alt=""
-                        className="team-logo"
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
+                    <TeamLogo abbrev={abbrev} seasonLogo={seasonLogo} />
                     {teamShortName(abbrev) || String(row.name ?? '—')}
                   </span>
                 </th>

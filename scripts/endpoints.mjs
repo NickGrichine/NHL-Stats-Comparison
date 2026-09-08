@@ -47,7 +47,7 @@ export const GOALIE_FIELDS = [
 ];
 
 export const TEAM_FIELDS = [
-  'id', 'name', 'abbrev', 'division', 'conference', 'clinch',
+  'id', 'name', 'abbrev', 'division', 'conference', 'clinch', 'logo',
   'gp', 'w', 'l', 'otl', 't', 'pts', 'ptPct', 'row', 'winsReg', 'winsSo',
   'gf', 'ga', 'gfGp', 'gaGp', 'sfGp', 'saGp',
   'ppPct', 'pkPct', 'foPct', 'so',
