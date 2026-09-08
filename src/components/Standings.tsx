@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 import { loadDataset } from '../api/datasets';
 import { useAsync } from '../api/useDataset';
@@ -50,6 +50,21 @@ function cleanDivisionName(name: string): string {
 }
 
 /**
+ * The conferences were named "Prince of Wales" and "Clarence Campbell" from
+ * 1974 until the 1993-94 rename to the current "Eastern"/"Western" — same
+ * two conferences, same teams, just an old name. Renamed here so every era
+ * reads the same way instead of only seasons since '93 saying "Eastern."
+ */
+const CONFERENCE_NAME_OVERRIDES: Record<string, string> = {
+  'Prince of Wales': 'Eastern',
+  'Clarence Campbell': 'Western',
+};
+
+function cleanConferenceName(name: string): string {
+  return CONFERENCE_NAME_OVERRIDES[name] ?? name;
+}
+
+/**
  * Groups teams by the division/conference structure actually in effect that
  * season. Sorted by conference then division name so realignment eras (the
  * COVID-shortened 2020-21 season's geographic divisions, old Norris/Adams/
@@ -61,7 +76,7 @@ function groupByDivision(rows: StatRow[]): DivisionGroup[] {
   for (const row of rows) {
     const key = cleanDivisionName(
       (typeof row.division === 'string' && row.division) ||
-        (typeof row.conference === 'string' && row.conference) ||
+        (typeof row.conference === 'string' && cleanConferenceName(row.conference)) ||
         'League',
     );
     const list = groups.get(key);
@@ -71,7 +86,7 @@ function groupByDivision(rows: StatRow[]): DivisionGroup[] {
 
   const sortKey = (list: StatRow[]) => {
     const first = list[0];
-    const conference = typeof first?.conference === 'string' ? first.conference : '';
+    const conference = typeof first?.conference === 'string' ? cleanConferenceName(first.conference) : '';
     const division = typeof first?.division === 'string' ? cleanDivisionName(first.division) : '';
     return `${conference}::${division}`;
   };
@@ -88,7 +103,7 @@ function groupByDivision(rows: StatRow[]): DivisionGroup[] {
 function groupByConference(divisions: DivisionGroup[]): [string, DivisionGroup[]][] | null {
   const conferenceOf = (group: DivisionGroup) => {
     const first = group[1][0];
-    return typeof first?.conference === 'string' ? first.conference : null;
+    return typeof first?.conference === 'string' ? cleanConferenceName(first.conference) : null;
   };
 
   if (!divisions.every((group) => conferenceOf(group))) return null;
@@ -101,9 +116,7 @@ function groupByConference(divisions: DivisionGroup[]): [string, DivisionGroup[]
     else byConference.set(conference, [group]);
   }
 
-  // The West-first convention this app's audience actually expects; anything
-  // that isn't literally a "West"/"East" conference (Wales, Campbell, ...)
-  // just falls back to alphabetical.
+  // The West-first convention this app's audience actually expects.
   return [...byConference.entries()].sort(([a], [b]) => {
     const westA = /west/i.test(a);
     const westB = /west/i.test(b);
@@ -125,6 +138,41 @@ function chunkPairs<T>(items: T[]): T[][] {
 }
 
 /**
+ * Every crest on the NHL's asset CDN shares one fixed 960×640 canvas, but how
+ * much of it the actual artwork fills varies a lot from logo to logo — a
+ * plain vintage mark commonly fills most of the canvas, while some current
+ * circular badges leave a lot of padding around a smaller inner design. Fit
+ * to the same 26×26 box with a flat zoom, the padded ones read as noticeably
+ * smaller. `box` is that logo's own drawn-content bounding box (in the
+ * canvas's own units, computed once per logo in the data pipeline), which
+ * lets each crest zoom in by exactly the amount *it* needs to fill the frame
+ * consistently — full-bleed logos lose a sliver off their outer edge, the
+ * padded ones come up to match instead of reading as smaller.
+ */
+const LOGO_VIEWBOX = 960;
+const LOGO_LETTERBOX = (1 - 640 / 960) / 2;
+const LOGO_TARGET_FILL = 0.86;
+
+function logoZoomStyle(box: string | null): CSSProperties | undefined {
+  if (!box) return undefined;
+  const parts = box.split(',').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return undefined;
+  const [x0, y0, x1, y1] = parts as [number, number, number, number];
+
+  const cx = (x0 + x1) / 2 / LOGO_VIEWBOX;
+  const cy = LOGO_LETTERBOX + (y0 + y1) / 2 / LOGO_VIEWBOX;
+  const w = (x1 - x0) / LOGO_VIEWBOX;
+  const h = (y1 - y0) / LOGO_VIEWBOX;
+  if (w <= 0 || h <= 0) return undefined;
+
+  const scale = LOGO_TARGET_FILL / Math.max(w, h);
+  const tx = (0.5 / scale - cx) * 100;
+  const ty = (0.5 / scale - cy) * 100;
+
+  return { transformOrigin: '0 0', transform: `scale(${scale}) translate(${tx}%, ${ty}%)` };
+}
+
+/**
  * A team's crest exactly as it looked that season — the Rockies keep the
  * Rockies' own logo rather than showing up as the Devils they later became,
  * and a 1921 Canadiens row gets 1921's logo, not 2025's. `seasonLogo` comes
@@ -135,7 +183,15 @@ function chunkPairs<T>(items: T[]): T[][] {
  * (the Montreal Maroons, the original Ottawa Senators) with no current team
  * to fall back to either. Every row ends up with *something*, never a blank.
  */
-function TeamLogo({ abbrev, seasonLogo }: { abbrev: string | null; seasonLogo: string | null }) {
+function TeamLogo({
+  abbrev,
+  seasonLogo,
+  seasonLogoBox,
+}: {
+  abbrev: string | null;
+  seasonLogo: string | null;
+  seasonLogoBox: string | null;
+}) {
   const [stage, setStage] = useState<'season' | 'current' | 'monogram'>(seasonLogo ? 'season' : 'current');
 
   if (stage === 'season' && seasonLogo) {
@@ -145,7 +201,7 @@ function TeamLogo({ abbrev, seasonLogo }: { abbrev: string | null; seasonLogo: s
           src={seasonLogo}
           alt=""
           className="team-logo-img"
-          loading="lazy"
+          style={logoZoomStyle(seasonLogoBox)}
           onError={() => setStage('current')}
         />
       </span>
@@ -160,7 +216,6 @@ function TeamLogo({ abbrev, seasonLogo }: { abbrev: string | null; seasonLogo: s
           src={currentLogo}
           alt=""
           className="team-logo-img"
-          loading="lazy"
           onError={() => setStage('monogram')}
         />
       </span>
@@ -201,11 +256,12 @@ function DivisionTable({ division, teams, showCaption }: { division: string; tea
           {teams.map((row) => {
             const abbrev = typeof row.abbrev === 'string' ? row.abbrev : null;
             const seasonLogo = typeof row.logo === 'string' ? row.logo : null;
+            const seasonLogoBox = typeof row.logoBox === 'string' ? row.logoBox : null;
             return (
               <tr key={row.id} className={clinchRowClass(row.clinch)}>
                 <th scope="row">
                   <span className="team-cell">
-                    <TeamLogo abbrev={abbrev} seasonLogo={seasonLogo} />
+                    <TeamLogo abbrev={abbrev} seasonLogo={seasonLogo} seasonLogoBox={seasonLogoBox} />
                     {teamShortName(abbrev) || String(row.name ?? '—')}
                   </span>
                 </th>

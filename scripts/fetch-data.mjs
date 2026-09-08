@@ -25,6 +25,7 @@ import { fetchJson, fetchReport, pooled, STATS_BASE, WEB_BASE } from './nhl-clie
 import { ENTITIES, mergeReports, cayenne } from './endpoints.mjs';
 import { encodeColumnar } from '../shared/codec.mjs';
 import { GAME_TYPE, formatSeasonId, mutableSeasonIds, currentSeasonId } from '../shared/seasons.mjs';
+import { svgPathBbox } from 'svg-path-bbox';
 
 const SCHEMA_VERSION = 1;
 const GAME_TYPES = [GAME_TYPE.REGULAR, GAME_TYPE.PLAYOFFS];
@@ -128,17 +129,69 @@ async function loadStandingsSeasonMeta() {
   return map;
 }
 
+const logoBoxCache = new Map();
+
+/**
+ * The union bounding box, in the logo's own 960x640 viewBox units, of every
+ * `<path>` this SVG draws — the frontend uses it to zoom each crest in by
+ * exactly the amount *it* needs, since the CDN's fixed canvas size means a
+ * plain, tightly-drawn 1930s mark and a modern circular badge with a lot of
+ * padding around it end up the same declared size but very different actual
+ * sizes. Cached by URL for the run: the same era's logo is shared across
+ * every season that used it, so this fetches and parses each one once.
+ *
+ * A regex pull of `d="..."` attributes rather than a real XML/SVG parse —
+ * every logo on this CDN turns out to be flat `<path>` elements with no
+ * groups or transforms, so it's an exact bounding box in practice, not an
+ * approximation, without pulling in an SVG/DOM dependency for it.
+ */
+async function getLogoBox(url) {
+  if (!url) return null;
+  if (logoBoxCache.has(url)) return logoBoxCache.get(url);
+
+  let box = null;
+  try {
+    const response = await fetch(url);
+    if (response.ok) {
+      const text = await response.text();
+      const paths = [...text.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
+      let union = null;
+      for (const d of paths) {
+        const b = svgPathBbox(d);
+        if (!b.every((n) => Number.isFinite(n))) continue;
+        union = union
+          ? [Math.min(union[0], b[0]), Math.min(union[1], b[1]), Math.max(union[2], b[2]), Math.max(union[3], b[3])]
+          : b;
+      }
+      if (union) box = union.map((n) => Math.round(n * 10) / 10).join(',');
+    }
+  } catch (error) {
+    console.warn(`  logo bbox for ${url} failed: ${error.message}`);
+  }
+
+  logoBoxCache.set(url, box);
+  return box;
+}
+
 const divisionMapCache = new Map();
 
 /**
- * teamAbbrev -> that season's division/conference, clinch status, and — the
- * reason this isn't gated on whether the season even had divisions — the
- * team's logo exactly as it looked that year. The NHL's asset CDN only hosts
- * a team's *current* crest under its bare tricode, but the standings-by-date
- * payload gives each team a `teamLogo` URL scoped to the exact era that
- * design was used (e.g. `MMR_19251926-19341935`), which is what lets a
- * fully defunct club like the Montreal Maroons still get its own real logo
- * instead of a modern stand-in or a plain monogram.
+ * That season's division/conference, clinch status, and — the reason this
+ * isn't gated on whether the season even had divisions — every team's logo
+ * exactly as it looked that year. The NHL's asset CDN only hosts a team's
+ * *current* crest under its bare tricode, but the standings-by-date payload
+ * gives each team a `teamLogo` URL scoped to the exact era that design was
+ * used (e.g. `MMR_19251926-19341935`), which is what lets a fully defunct
+ * club like the Montreal Maroons still get its own real logo instead of a
+ * modern stand-in or a plain monogram.
+ *
+ * Returned as two maps, keyed by abbreviation and by full team name: this
+ * endpoint's own abbreviation isn't always the one the rest of the pipeline
+ * uses for the same franchise — 1977-78's Cleveland Barons show up here as
+ * "CBN" while everywhere else (including this same payload's own logo URL)
+ * calls them "CLE" — so `buildSlice` tries abbreviation first and falls back
+ * to the team's full name, rather than that one team silently losing its
+ * division for the season and corrupting the whole conference layout.
  *
  * A finished season is fetched once from its final standings date and cached
  * forever — that snapshot can never change. A season that has started but not
@@ -157,7 +210,7 @@ async function getDivisionMap(seasonId, standingsMeta) {
   if (divisionMapCache.has(seasonId)) return divisionMapCache.get(seasonId);
 
   const info = standingsMeta.get(seasonId);
-  let map = null;
+  let result = null;
 
   if (info) {
     const endTime = info.standingsEnd ? Date.parse(info.standingsEnd) : NaN;
@@ -170,26 +223,31 @@ async function getDivisionMap(seasonId, standingsMeta) {
       try {
         const payload = await fetchJson(url, { label: `standings groups ${seasonId}` });
         const rows = Array.isArray(payload?.standings) ? payload.standings : [];
-        map = new Map();
+        const byAbbrev = new Map();
+        const byName = new Map();
         for (const row of rows) {
           const abbrev = row.teamAbbrev?.default;
-          if (!abbrev) continue;
-          map.set(abbrev, {
+          const name = row.teamName?.default;
+          const entry = {
             division: row.divisionName ?? null,
             conference: row.conferenceName ?? null,
             clinch: row.clinchIndicator ?? null,
             logo: row.teamLogo ?? null,
-          });
+            logoBox: await getLogoBox(row.teamLogo),
+          };
+          if (abbrev) byAbbrev.set(abbrev, entry);
+          if (name) byName.set(name, entry);
         }
+        result = { byAbbrev, byName };
       } catch (error) {
         console.warn(`  division lookup for ${seasonId} failed: ${error.message}`);
-        map = null;
+        result = null;
       }
     }
   }
 
-  divisionMapCache.set(seasonId, map);
-  return map;
+  divisionMapCache.set(seasonId, result);
+  return result;
 }
 
 /** teamId -> triCode, so team rows can carry an abbreviation and a logo. */
@@ -241,11 +299,17 @@ async function buildSlice(seasonId, kind, gameType, context) {
     const record = entity.normalise(row);
     if (kind === 'teams' && record.id !== null) {
       record.abbrev = context.teamLookup[record.id] ?? null;
-      const info = record.abbrev ? context.divisionMap?.get(record.abbrev) : null;
+      // Abbreviation first, full name second — see `getDivisionMap` for why
+      // a team can be missing under its own tricode (Cleveland Barons/"CBN").
+      const info =
+        (record.abbrev ? context.divisionMap?.byAbbrev.get(record.abbrev) : null) ??
+        (typeof record.name === 'string' ? context.divisionMap?.byName.get(record.name) : null) ??
+        null;
       record.division = info?.division ?? null;
       record.conference = info?.conference ?? null;
       record.clinch = info?.clinch ?? null;
       record.logo = info?.logo ?? null;
+      record.logoBox = info?.logoBox ?? null;
     }
     return record;
   });

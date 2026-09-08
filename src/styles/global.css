@@ -850,20 +850,15 @@ a {
   overflow: hidden;
 }
 
-/* NHL crest SVGs share one fixed canvas size across every era, but how much
-   of it each design actually fills varies a lot — a older, plainer mark
-   commonly fills most of it, while some current circular logos leave a lot
-   of padding around a smaller inner badge, so the *box* being equal doesn't
-   make the *artwork* read as equal. Zooming in past 100% and letting the
-   frame's `overflow: hidden` crop the excess brings the small ones back up
-   to size; already-full logos (Vegas' shield, say) just lose a sliver of
-   their outer edge, which reads better than the alternative of some crests
-   looking like a coin and others a stamp. */
+/* Sized to fill the frame at rest; a season-specific crest gets an inline
+   per-logo zoom on top of this from `logoZoomStyle` in Standings.tsx, which
+   is what actually normalises how big each one reads — see the comment
+   there. A logo with no computed box (the rare row still falling back to
+   `teamLogoUrl`) just renders at this plain 1:1 fit. */
 .team-logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform: scale(1.4);
 }
 
 /* For the handful of long-folded franchises with no logo to redirect to —
