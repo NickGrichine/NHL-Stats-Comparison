@@ -289,6 +289,13 @@ a {
   min-width: 152px;
 }
 
+/* Standalone, not inside a flex row like `.controls` — `.field`'s own
+   `display: flex` still blockifies to the panel's full width otherwise. */
+.standings-season {
+  display: inline-flex;
+  margin-bottom: 14px;
+}
+
 .share,
 .theme-toggle {
   font: inherit;
@@ -620,6 +627,20 @@ a {
   transform: translateY(0);
 }
 
+/* Header tooltips sit over right-aligned numeric columns, often the last one
+   in a narrow division table — anchor from the right instead of centering,
+   for the same off-screen-clipping reason as the row headers above. */
+.stat-table thead th .tip-bubble {
+  left: auto;
+  right: 0;
+  transform: translateY(4px);
+}
+
+.stat-table thead th .tip:hover .tip-bubble,
+.stat-table thead th .tip:focus-visible .tip-bubble {
+  transform: translateY(0);
+}
+
 /* ------------------------------------------------------------------ table */
 
 .table-scroll {
@@ -747,6 +768,67 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
+}
+
+/* Every numeric column shares one width, sized to fit "OTL" — the widest
+   header — so all of them line up instead of each shrinking to its own
+   header's width and reading as unevenly spaced. */
+.standings-table th:not(:first-child),
+.standings-table td:not(:first-child) {
+  min-width: 2.75em;
+}
+
+/* These tables are a handful of rows and never need a sticky header — and
+   `position: sticky` was clipping the header tooltips' bubbles, since it
+   makes the `<th>` a positioned ancestor that the bubble's own containing
+   block calculation gets tangled up in. */
+.standings-table thead th {
+  position: static;
+}
+
+/* Highlighted rows: gold for the Presidents' Trophy, green for every other
+   clinch (division, conference, or a plain playoff berth including a wild
+   card) — see the legend line under each table for what the colors mean. */
+tr.clinch-playoff td,
+tr.clinch-playoff th[scope='row'] {
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+
+tr.clinch-trophy td,
+tr.clinch-trophy th[scope='row'] {
+  background: color-mix(in srgb, #d4af37 22%, transparent);
+}
+
+.standings-legend {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.standings-not-started {
+  margin-top: 10px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.legend-swatch.clinch-playoff {
+  background: color-mix(in srgb, var(--good) 55%, transparent);
+}
+
+.legend-swatch.clinch-trophy {
+  background: #d4af37;
 }
 
 /* ----------------------------------------------------------------- footer */

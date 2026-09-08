@@ -103,6 +103,78 @@ async function loadSeasons() {
     .sort((a, b) => b.id - a.id);
 }
 
+/**
+ * Which seasons had divisions at all, and the date their standings were
+ * final — the NHL's own standings-by-date endpoint groups teams by whatever
+ * division/conference structure was actually in effect that season, so this
+ * is the one source that gets historical realignments right for free.
+ */
+async function loadStandingsSeasonMeta() {
+  const payload = await fetchJson(`${WEB_BASE}/standings-season`, {
+    label: 'standings season list',
+  });
+  const rows = Array.isArray(payload?.seasons) ? payload.seasons : [];
+  /** @type {Map<number, { standingsEnd: string|null, divisionsInUse: boolean }>} */
+  const map = new Map();
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) continue;
+    map.set(id, {
+      standingsEnd: row.standingsEnd ?? null,
+      divisionsInUse: Boolean(row.divisionsInUse),
+    });
+  }
+  return map;
+}
+
+const divisionMapCache = new Map();
+
+/**
+ * teamAbbrev -> that season's division/conference and final clinch status,
+ * fetched once per season and cached forever — a finished season's alignment
+ * and standings can never change. Seasons before divisions existed, or that
+ * have not finished yet, return null, which the frontend renders as one flat
+ * league table with no clinch highlighting.
+ *
+ * `divisionSequence`/`conferenceSequence` in the raw payload are each team's
+ * *rank within* that group, not the group's own order — useless for sorting
+ * divisions, which is why they are not captured here.
+ */
+async function getDivisionMap(seasonId, standingsMeta) {
+  if (divisionMapCache.has(seasonId)) return divisionMapCache.get(seasonId);
+
+  const info = standingsMeta.get(seasonId);
+  let map = null;
+
+  if (info?.divisionsInUse && info.standingsEnd) {
+    const endTime = Date.parse(info.standingsEnd);
+    if (Number.isFinite(endTime) && endTime <= Date.now()) {
+      try {
+        const payload = await fetchJson(`${WEB_BASE}/standings/${info.standingsEnd}`, {
+          label: `standings groups ${seasonId}`,
+        });
+        const rows = Array.isArray(payload?.standings) ? payload.standings : [];
+        map = new Map();
+        for (const row of rows) {
+          const abbrev = row.teamAbbrev?.default;
+          if (!abbrev) continue;
+          map.set(abbrev, {
+            division: row.divisionName ?? null,
+            conference: row.conferenceName ?? null,
+            clinch: row.clinchIndicator ?? null,
+          });
+        }
+      } catch (error) {
+        console.warn(`  division lookup for ${seasonId} failed: ${error.message}`);
+        map = null;
+      }
+    }
+  }
+
+  divisionMapCache.set(seasonId, map);
+  return map;
+}
+
 /** teamId -> triCode, so team rows can carry an abbreviation and a logo. */
 async function loadTeamLookup() {
   const payload = await fetchJson(`${STATS_BASE}/team`, { label: 'team list' });
@@ -152,6 +224,10 @@ async function buildSlice(seasonId, kind, gameType, context) {
     const record = entity.normalise(row);
     if (kind === 'teams' && record.id !== null) {
       record.abbrev = context.teamLookup[record.id] ?? null;
+      const info = record.abbrev ? context.divisionMap?.get(record.abbrev) : null;
+      record.division = info?.division ?? null;
+      record.conference = info?.conference ?? null;
+      record.clinch = info?.clinch ?? null;
     }
     return record;
   });
@@ -353,6 +429,7 @@ async function main() {
   const previous = await readJson('manifest.json');
   const seasons = await loadSeasons();
   const teamLookup = await loadTeamLookup();
+  const standingsMeta = await loadStandingsSeasonMeta();
   log(`${seasons.length} seasons known, ${formatSeasonId(seasons[0]?.id)} back to ${formatSeasonId(seasons.at(-1)?.id)}.`);
 
   const mutable = new Set(mutableSeasonIds());
@@ -394,7 +471,12 @@ async function main() {
     index += 1;
     const tag = `${formatSeasonId(item.season.id)} ${item.kind} gt${item.gameType}`;
     try {
-      const rows = await buildSlice(item.season.id, item.kind, item.gameType, { teamLookup });
+      const divisionMap =
+        item.kind === 'teams' ? await getDivisionMap(item.season.id, standingsMeta) : null;
+      const rows = await buildSlice(item.season.id, item.kind, item.gameType, {
+        teamLookup,
+        divisionMap,
+      });
       counts[item.season.id] ??= {};
       counts[item.season.id][`${item.kind}-${item.gameType}`] = rows ?? 0;
       log(`  [${index}/${work.length}] ${tag}: ${rows ?? 0} rows`);

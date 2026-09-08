@@ -374,12 +374,12 @@ export default function App() {
         </div>
       </section>
 
-      <Scoreboard />
-
       <section className="panel">
         <h2>Standings</h2>
         <Standings manifest={manifest} />
       </section>
+
+      <Scoreboard />
 
       <footer className="footer">
         <p>
