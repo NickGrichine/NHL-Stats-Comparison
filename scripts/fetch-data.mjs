@@ -114,12 +114,13 @@ async function loadStandingsSeasonMeta() {
     label: 'standings season list',
   });
   const rows = Array.isArray(payload?.seasons) ? payload.seasons : [];
-  /** @type {Map<number, { standingsEnd: string|null, divisionsInUse: boolean }>} */
+  /** @type {Map<number, { standingsStart: string|null, standingsEnd: string|null, divisionsInUse: boolean }>} */
   const map = new Map();
   for (const row of rows) {
     const id = Number(row.id);
     if (!Number.isFinite(id)) continue;
     map.set(id, {
+      standingsStart: row.standingsStart ?? null,
       standingsEnd: row.standingsEnd ?? null,
       divisionsInUse: Boolean(row.divisionsInUse),
     });
@@ -130,11 +131,16 @@ async function loadStandingsSeasonMeta() {
 const divisionMapCache = new Map();
 
 /**
- * teamAbbrev -> that season's division/conference and final clinch status,
- * fetched once per season and cached forever — a finished season's alignment
- * and standings can never change. Seasons before divisions existed, or that
- * have not finished yet, return null, which the frontend renders as one flat
- * league table with no clinch highlighting.
+ * teamAbbrev -> that season's division/conference and clinch status.
+ *
+ * A finished season is fetched once from its final standings date and cached
+ * forever — that snapshot can never change. A season that has started but not
+ * finished (the current one, refetched every run regardless of cache) instead
+ * reads `/standings/now`, so division alignment and clinches — Presidents'
+ * Trophy, division, conference, wild card — appear and firm up live as the
+ * season actually plays out, rather than waiting for it to be over. A season
+ * that has not started yet, or never had divisions, returns null, which the
+ * frontend renders as one flat league table with no clinch highlighting.
  *
  * `divisionSequence`/`conferenceSequence` in the raw payload are each team's
  * *rank within* that group, not the group's own order — useless for sorting
@@ -146,13 +152,16 @@ async function getDivisionMap(seasonId, standingsMeta) {
   const info = standingsMeta.get(seasonId);
   let map = null;
 
-  if (info?.divisionsInUse && info.standingsEnd) {
-    const endTime = Date.parse(info.standingsEnd);
-    if (Number.isFinite(endTime) && endTime <= Date.now()) {
+  if (info?.divisionsInUse) {
+    const endTime = info.standingsEnd ? Date.parse(info.standingsEnd) : NaN;
+    const startTime = info.standingsStart ? Date.parse(info.standingsStart) : NaN;
+    const finished = Number.isFinite(endTime) && endTime <= Date.now();
+    const started = Number.isFinite(startTime) && startTime <= Date.now();
+
+    if (finished || started) {
+      const url = finished ? `${WEB_BASE}/standings/${info.standingsEnd}` : `${WEB_BASE}/standings/now`;
       try {
-        const payload = await fetchJson(`${WEB_BASE}/standings/${info.standingsEnd}`, {
-          label: `standings groups ${seasonId}`,
-        });
+        const payload = await fetchJson(url, { label: `standings groups ${seasonId}` });
         const rows = Array.isArray(payload?.standings) ? payload.standings : [];
         map = new Map();
         for (const row of rows) {
