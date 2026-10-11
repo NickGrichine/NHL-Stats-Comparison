@@ -85,6 +85,27 @@ describe('cohortRows', () => {
   it('keeps everyone when the group is ALL', () => {
     expect(cohortRows(rows, { minGames: 1, group: 'ALL' })).toHaveLength(4);
   });
+
+  it('scales the qualifying line to games played so far in an in-progress season', () => {
+    const early = [
+      row({ id: 1, gp: 5, pos: 'C' }),
+      row({ id: 2, gp: 4, pos: 'L' }),
+      row({ id: 3, gp: 1, pos: 'D' }),
+    ];
+    // A fifth of the full 84-game schedule would be 17 — nobody qualifies yet.
+    expect(cohortRows(early, { gamesInSeason: 84 }).length).toBeGreaterThan(0);
+    expect(cohortRows(early, { gamesInSeason: 84 }).map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it('still filters call-ups once enough of the season has been played', () => {
+    const midSeason = [
+      row({ id: 1, gp: 40, pos: 'C' }),
+      row({ id: 2, gp: 38, pos: 'L' }),
+      row({ id: 3, gp: 3, pos: 'D' }),
+    ];
+    // 40 games played -> line of 8; the three-game call-up is out.
+    expect(cohortRows(midSeason, { gamesInSeason: 84 }).map((r) => r.id)).toEqual([1, 2]);
+  });
 });
 
 describe('scoreMetric', () => {

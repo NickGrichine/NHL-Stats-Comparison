@@ -45,9 +45,28 @@ export function qualifyingGames(options: CohortOptions): number {
   return Math.max(1, Math.round(games * 0.2));
 }
 
-/** Rows that count towards the distribution a percentile is measured against. */
+/**
+ * Rows that count towards the distribution a percentile is measured against.
+ *
+ * The qualifying line is a fifth of the games *played so far*, not of the full
+ * schedule: against a full 84-game schedule the line is 17 games, which five
+ * games into a season nobody has reached — an empty cohort, and every axis on
+ * the chart collapses to the centre. The most games any row has played stands
+ * in for how far the season has got, and for a finished season it equals the
+ * schedule, so completed seasons are unaffected.
+ */
 export function cohortRows(rows: StatRow[], options: CohortOptions = {}): StatRow[] {
-  const minGames = qualifyingGames(options);
+  let mostPlayed = 0;
+  for (const row of rows) {
+    const gp = Number(row.gp);
+    if (Number.isFinite(gp) && gp > mostPlayed) mostPlayed = gp;
+  }
+
+  const schedule = options.gamesInSeason;
+  const gamesSoFar =
+    schedule && Number.isFinite(schedule) && mostPlayed > 0 ? Math.min(schedule, mostPlayed) : schedule;
+
+  const minGames = qualifyingGames({ ...options, gamesInSeason: gamesSoFar });
   const group = options.group ?? 'ALL';
 
   return rows.filter((row) => {
