@@ -250,44 +250,105 @@ async function getDivisionMap(seasonId, standingsMeta) {
   return result;
 }
 
-const stanleyCupCache = new Map();
+const bracketCache = new Map();
+
+/**
+ * That season's playoff bracket series, from the NHL's `playoff-bracket/{year}`
+ * (the year is the season's end year: 20232024 -> 2024). Cached for the run
+ * since both the champion flag and the Final panel read from it. A season
+ * with no playoffs yet — or a failed fetch — is an empty list.
+ */
+async function getBracket(seasonId) {
+  if (bracketCache.has(seasonId)) return bracketCache.get(seasonId);
+
+  let series = [];
+  try {
+    const payload = await fetchJson(`${WEB_BASE}/playoff-bracket/${seasonId % 10000}`, {
+      label: `playoff bracket ${seasonId}`,
+    });
+    series = Array.isArray(payload?.series) ? payload.series : [];
+  } catch (error) {
+    console.warn(`  playoff bracket for ${seasonId} failed: ${error.message}`);
+  }
+
+  bracketCache.set(seasonId, series);
+  return series;
+}
 
 /**
  * That season's Stanley Cup Final winner, resolved from the playoff bracket
  * rather than derived from the regular-season standings lookup — a team that
  * goes on to win the Cup is identified by whoever actually won the Final
  * series, independent of how (or whether) the standings/logo data names it.
- * Cached by season for the run. A season with no Final yet — not started, or
- * still in progress — returns null.
+ * A season with no decided Final — not started, still in progress, or
+ * cancelled — returns null.
  */
 async function getStanleyCupChampion(seasonId) {
-  if (stanleyCupCache.has(seasonId)) return stanleyCupCache.get(seasonId);
+  const series = await getBracket(seasonId);
+  const final = series.find((s) => /stanley cup final/i.test(s.seriesTitle ?? ''));
+  if (!final?.winningTeamId) return null;
 
-  const year = seasonId % 10000;
-  let champion = null;
-  try {
-    const payload = await fetchJson(`${WEB_BASE}/playoff-bracket/${year}`, {
-      label: `playoff bracket ${seasonId}`,
+  const winner =
+    final.topSeedTeam?.id === final.winningTeamId
+      ? final.topSeedTeam
+      : final.bottomSeedTeam?.id === final.winningTeamId
+        ? final.bottomSeedTeam
+        : null;
+  return winner ? { abbrev: winner.abbrev ?? null, name: winner.name?.default ?? null } : null;
+}
+
+/**
+ * Which league a bracket team's crest belongs to, read off its logo path
+ * (`/logos/nhl/`, `/logos/pcha/`, `/logos/wchl/`). The NHL only carried the
+ * Stanley Cup alone until 1926 — the PCHA and WCHL champions contested it
+ * too, but their regular seasons are not in this API at all, so the Cup
+ * series are the only place those clubs appear. null means an NHL club.
+ */
+function leagueOf(logo) {
+  const match = /\/logos\/([a-z]+)\//i.exec(logo ?? '');
+  return match && match[1].toLowerCase() !== 'nhl' ? match[1].toUpperCase() : null;
+}
+
+async function describeBracketTeam(team, wins) {
+  return {
+    id: team.id ?? null,
+    abbrev: team.abbrev ?? null,
+    name: team.name?.default ?? null,
+    league: leagueOf(team.logo),
+    wins: Number.isFinite(Number(wins)) ? Number(wins) : null,
+    logo: team.logo ?? null,
+    logoBox: await getLogoBox(team.logo),
+  };
+}
+
+/**
+ * `season/{id}/cup.json`: the series that decide the Stanley Cup — the Final
+ * itself, and for the early years the "NHL Final" and any Cup semifinal too,
+ * since the NHL champion did not automatically get the Cup then. Written once
+ * per season; a season with no such series (no playoffs yet, the 2004-05
+ * lockout) writes nothing and the frontend treats a missing file as "none".
+ */
+async function buildCupFile(seasonId) {
+  const series = await getBracket(seasonId);
+  const wanted = series
+    .filter((s) => /stanley cup|nhl final/i.test(s.seriesTitle ?? ''))
+    .filter((s) => s.topSeedTeam?.name?.default && s.bottomSeedTeam?.name?.default)
+    .sort((a, b) => (a.playoffRound ?? 0) - (b.playoffRound ?? 0));
+  if (wanted.length === 0) return false;
+
+  const out = [];
+  for (const s of wanted) {
+    out.push({
+      title: s.seriesTitle,
+      round: s.playoffRound ?? null,
+      top: await describeBracketTeam(s.topSeedTeam, s.topSeedWins),
+      bottom: await describeBracketTeam(s.bottomSeedTeam, s.bottomSeedWins),
+      winnerId: s.winningTeamId ?? null,
     });
-    const series = Array.isArray(payload?.series) ? payload.series : [];
-    const final = series.find((s) => /stanley cup final/i.test(s.seriesTitle ?? ''));
-    if (final?.winningTeamId) {
-      const winner =
-        final.topSeedTeam?.id === final.winningTeamId
-          ? final.topSeedTeam
-          : final.bottomSeedTeam?.id === final.winningTeamId
-            ? final.bottomSeedTeam
-            : null;
-      if (winner) {
-        champion = { abbrev: winner.abbrev ?? null, name: winner.name?.default ?? null };
-      }
-    }
-  } catch (error) {
-    console.warn(`  playoff bracket for ${seasonId} failed: ${error.message}`);
   }
 
-  stanleyCupCache.set(seasonId, champion);
-  return champion;
+  await writeJson(`season/${seasonId}/cup.json`, { schema: SCHEMA_VERSION, seasonId, series: out });
+  return true;
 }
 
 /** teamId -> triCode, so team rows can carry an abbreviation and a logo. */
@@ -624,6 +685,22 @@ async function main() {
     // re-asking about seasons that have no playoffs.
     if (index % 25 === 0) await saveManifest(seasons, counts);
   }
+
+  // Stanley Cup series files. Independent of the slices above on purpose: a
+  // missing file is fetched on any normal run, so a deployed site gets every
+  // season's Final without needing a forced full refresh.
+  let cupFiles = 0;
+  for (const season of seasons) {
+    if (options.seasons && !options.seasons.includes(season.id)) continue;
+    const present = await exists(path.join(OUT_DIR, `season/${season.id}/cup.json`));
+    if (present && !options.force && !mutable.has(season.id)) continue;
+    try {
+      if (await buildCupFile(season.id)) cupFiles += 1;
+    } catch (error) {
+      console.warn(`  cup file for ${formatSeasonId(season.id)} failed: ${error.message}`);
+    }
+  }
+  log(`Stanley Cup series: ${cupFiles} file(s) written.`);
 
   if (changed || !(await exists(path.join(OUT_DIR, 'index/players.json')))) {
     log('Rebuilding indexes…');

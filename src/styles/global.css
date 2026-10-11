@@ -938,6 +938,62 @@ tr.clinch-trophy th[scope='row'] {
   background: #d4af37;
 }
 
+.cup-panel {
+  margin-top: 22px;
+}
+
+.cup-series {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.cup-title {
+  flex: 0 0 100%;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Side by side only where there is room; stacked above the matchup otherwise. */
+@media (min-width: 760px) {
+  .cup-title {
+    flex-basis: 11.5rem;
+  }
+}
+
+.cup-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cup-team.is-winner {
+  font-weight: 600;
+}
+
+.cup-league,
+.cup-status {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.cup-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .legend-cup {
   font-size: 0.85rem;
   line-height: 1;

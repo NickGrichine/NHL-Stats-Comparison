@@ -60,3 +60,28 @@ export interface Selection {
   season: SeasonScope;
   gameType: GameType;
 }
+
+/** One team in a Stanley Cup series. `league` is null for an NHL club. */
+export interface CupTeam {
+  id: number | null;
+  abbrev: string | null;
+  name: string | null;
+  league: string | null;
+  wins: number | null;
+  logo: string | null;
+  logoBox: string | null;
+}
+
+export interface CupSeries {
+  title: string;
+  round: number | null;
+  top: CupTeam;
+  bottom: CupTeam;
+  /** null when the series was never decided (1918-19 was cancelled). */
+  winnerId: number | null;
+}
+
+export interface CupFile {
+  seasonId: number;
+  series: CupSeries[];
+}

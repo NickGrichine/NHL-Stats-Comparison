@@ -11,6 +11,7 @@
 
 import { decodeColumnar } from '../../shared/codec.mjs';
 import type {
+  CupFile,
   EntityKind,
   GameType,
   Manifest,
@@ -116,6 +117,18 @@ export function loadLive<T>(name: 'scoreboard' | 'standings'): Promise<LiveFile<
   return cached(`live/${name}`, async () => {
     const payload = await getJson(`live/${name}.json`);
     return (payload as LiveFile<T> | null) ?? null;
+  });
+}
+
+/**
+ * The series that decided a season's Stanley Cup — the Final, plus the NHL
+ * Final and Cup semifinal in the early years when non-NHL clubs contested
+ * it. null when the season has none (no playoffs yet, or no file published).
+ */
+export function loadCup(season: number): Promise<CupFile | null> {
+  return cached(`cup/${season}`, async () => {
+    const payload = await getJson(`season/${season}/cup.json`);
+    return (payload as CupFile | null) ?? null;
   });
 }
 

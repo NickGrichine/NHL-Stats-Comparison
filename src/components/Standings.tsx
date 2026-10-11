@@ -1,10 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 
-import { loadDataset } from '../api/datasets';
+import { loadCup, loadDataset } from '../api/datasets';
 import { useAsync } from '../api/useDataset';
 import { fmtInt } from '../lib/format';
 import { teamColor, teamLogoUrl, teamShortName } from '../lib/teams';
-import type { Manifest, StatRow } from '../types';
+import type { CupSeries, CupTeam, Manifest, StatRow } from '../types';
 
 /** The NHL marks a team's final regular-season clinch with one of these letters. */
 const CLINCH_CODES = new Set(['p', 'z', 'y', 'x']);
@@ -20,6 +20,12 @@ function clinchRowClass(code: unknown): string {
 const CLINCH_GAP_NOTES: Record<number, string> = {
   20192020:
     'Clinch data isn’t available for 2019-20 — the season was suspended in March 2020 because of COVID-19 and never finished a normal stretch run.',
+};
+
+/** Seasons with no Stanley Cup champion to mark in the table, and the reason why. */
+const CUP_NOTES: Record<number, string> = {
+  19181919:
+    'No Stanley Cup was awarded for 1918-19. The Final between the Montreal Canadiens (the NHL champions) and the Seattle Metropolitans of the PCHA was cancelled with the series tied 2-2-1, because of the Spanish flu pandemic.',
 };
 
 const COLUMNS: { key: string; label: string; title: string }[] = [
@@ -287,6 +293,63 @@ function DivisionTable({ division, teams, showCaption }: { division: string; tea
   );
 }
 
+/** "PCHA" / "WCHL" — shown next to a club that was never in the NHL. */
+function CupTeamLabel({ team, winner }: { team: CupTeam; winner: boolean }) {
+  return (
+    <span className={winner ? 'cup-team is-winner' : 'cup-team'}>
+      <TeamLogo key={team.logo ?? team.abbrev ?? ''} abbrev={team.abbrev} seasonLogo={team.logo} seasonLogoBox={team.logoBox} />
+      <span>
+        {team.name ?? team.abbrev ?? '—'}
+        {team.league && <span className="cup-league"> ({team.league})</span>}
+      </span>
+      {winner && (
+        <span className="cup-trophy" aria-label="Won the Stanley Cup">
+          🏆
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * The series that decided the Cup. The early Cup was contested by the champions
+ * of leagues other than the NHL (the PCHA and WCHL) whose regular seasons the
+ * NHL's data does not carry — so those clubs can't have a standings row, and
+ * this is the one place they appear, with the crest they wore that year.
+ */
+function CupPanel({ series }: { series: CupSeries[] }) {
+  return (
+    <div className="cup-panel">
+      <h3 className="conference-heading">Stanley Cup</h3>
+      <ul className="cup-series">
+        {series.map((entry) => {
+          const decided = entry.winnerId !== null;
+          const topWon = decided && entry.top.id === entry.winnerId;
+          const [first, second] = !decided || topWon ? [entry.top, entry.bottom] : [entry.bottom, entry.top];
+          const isFinal = /stanley cup final/i.test(entry.title);
+          // Early rounds were often a two-game series decided on total goals,
+          // so a winner can have won no more *games* than the loser — the
+          // game count alone would read as a tie.
+          const onTotalGoals = decided && (first.wins ?? 0) <= (second.wins ?? 0);
+
+          return (
+            <li key={entry.title} className="cup-row">
+              <span className="cup-title">{entry.title}</span>
+              <CupTeamLabel team={first} winner={decided && isFinal} />
+              <span className="cup-score">
+                {first.wins ?? '–'}–{second.wins ?? '–'}
+              </span>
+              <CupTeamLabel team={second} winner={false} />
+              {!decided && <span className="cup-status">Not completed</span>}
+              {onTotalGoals && <span className="cup-status">Won on total goals</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /** A single season's final table, built from the same per-team season data the rest of the app compares. */
 function SeasonStandings({ season, seasons }: { season: number; seasons: Manifest['seasons'] }) {
   const { data, loading, error } = useAsync(() => loadDataset('teams', season, 2), [season]);
@@ -301,6 +364,8 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
     () => (priorSeasonId !== null ? loadDataset('teams', priorSeasonId, 2) : Promise.resolve(null)),
     [priorSeasonId],
   );
+
+  const cup = useAsync(() => loadCup(season), [season]);
 
   if (loading || (notStarted && priorSeasonId !== null && prior.loading)) {
     return <p className="muted">Loading standings…</p>;
@@ -363,6 +428,7 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
           </div>
         ))
       )}
+      {!notStarted && cup.data && cup.data.series.length > 0 && <CupPanel series={cup.data.series} />}
       {notStarted && (
         <p className="muted small standings-not-started">The {seasonLabel} season hasn’t started yet</p>
       )}
@@ -387,6 +453,9 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
         </p>
       )}
       {clinchGapNote && <p className="muted small standings-legend">{clinchGapNote}</p>}
+      {!notStarted && CUP_NOTES[season] && (
+        <p className="muted small standings-legend">{CUP_NOTES[season]}</p>
+      )}
     </>
   );
 }
