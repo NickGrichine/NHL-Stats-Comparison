@@ -177,11 +177,11 @@ function logoZoomStyle(box: string | null): CSSProperties | undefined {
  * Rockies' own logo rather than showing up as the Devils they later became,
  * and a 1921 Canadiens row gets 1921's logo, not 2025's. `seasonLogo` comes
  * straight off that season's own standings data (season-scoped, per-team);
- * `teamLogoUrl(abbrev)` — today's crest, redirected through a defunct team's
- * modern successor — is only a fallback for the rare row without one, and a
- * colour-coded monogram after that for the handful of long-folded franchises
- * (the Montreal Maroons, the original Ottawa Senators) with no current team
- * to fall back to either. Every row ends up with *something*, never a blank.
+ * `teamLogoUrl(abbrev)` — the team's own tricode on the CDN, which only
+ * resolves for clubs that still exist — is only a fallback for the rare row
+ * without one, and a colour-coded monogram after that. It never borrows a
+ * different franchise's crest. Every row ends up with *something*, never a
+ * blank.
  */
 function TeamLogo({
   abbrev,

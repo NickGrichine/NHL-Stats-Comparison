@@ -69,6 +69,7 @@ export const TEAMS: Record<string, TeamInfo> = {
   MWN: { name: 'Montreal Wanderers', short: 'Wanderers', color: '#AF1E2D', defunct: true },
   SEN: { name: 'Ottawa Senators (1917-34)', short: 'Senators', color: '#C8102E', defunct: true },
   HAM: { name: 'Hamilton Tigers', short: 'Tigers', color: '#FFB81C', defunct: true },
+  QBD: { name: 'Quebec Bulldogs', short: 'Bulldogs', color: '#C8102E', defunct: true },
   PIR: { name: 'Pittsburgh Pirates', short: 'Pirates', color: '#FCB514', defunct: true },
   QUA: { name: 'Philadelphia Quakers', short: 'Quakers', color: '#F74902', defunct: true },
   DCG: { name: 'Detroit Cougars', short: 'Cougars', color: '#CE1126', defunct: true },
@@ -218,44 +219,20 @@ export function positionGroup(code: string | null | undefined): 'F' | 'D' | 'G' 
 }
 
 /**
- * The NHL's logo CDN only hosts crests for a team's *current* branding — a
- * defunct or relocated club's own old tricode 404s even though the game data
- * still uses it (checked directly: `ARI_light.svg` exists, `AFM_light.svg`
- * does not). Redirect a handful of well-known defunct/relocated codes to
- * whichever still-active team is that same continuous franchise today, so
- * old standings still show a real, correct crest instead of nothing.
- *
- * Franchises that folded outright with no continuing NHL team (the Montreal
- * Maroons, the original Ottawa Senators, and other pre-WWII clubs) have no
- * honest logo to redirect to — `teamLogoUrl` returns null for those, and the
- * UI falls back to a colour-coded monogram instead.
+ * A team's crest on the NHL's logo CDN, by its own tricode — never a
+ * different franchise's. The CDN only hosts a bare-tricode crest for teams
+ * that exist today, so a defunct or rebranded club's own code simply 404s and
+ * the caller falls through to a monogram. That is deliberate: this used to
+ * redirect old codes to a successor franchise's logo (the Cleveland Barons
+ * showed the Stars' crest), which put the wrong team's logo on a season where
+ * that team did not exist. The season-accurate crest comes from the standings
+ * data itself; this is only the last resort before a monogram.
  */
-const LOGO_SUCCESSOR: Record<string, string> = {
-  PHX: 'UTA', // Phoenix Coyotes -> Arizona Coyotes -> Utah
-  WIN: 'UTA', // original Winnipeg Jets (1979-96) -> ... -> Utah
-  ATL: 'WPG', // Atlanta Thrashers -> Winnipeg Jets
-  AFM: 'CGY', // Atlanta Flames -> Calgary Flames
-  HFD: 'CAR', // Hartford Whalers -> Carolina Hurricanes
-  QUE: 'COL', // Quebec Nordiques -> Colorado Avalanche
-  MNS: 'DAL', // Minnesota North Stars -> Dallas Stars
-  CGS: 'DAL', // California Golden Seals -> ... -> Dallas Stars
-  OAK: 'DAL', // Oakland Seals -> ... -> Dallas Stars
-  CLE: 'DAL', // Cleveland Barons -> merged into the North Stars -> Dallas Stars
-  KCS: 'NJD', // Kansas City Scouts -> ... -> New Jersey Devils
-  CLR: 'NJD', // Colorado Rockies (NHL, 1976-82) -> New Jersey Devils
-  DCG: 'DET', // Detroit Cougars -> Detroit Red Wings
-  DFL: 'DET', // Detroit Falcons -> Detroit Red Wings
-  TAN: 'TOR', // Toronto Arenas -> Toronto Maple Leafs
-  TSP: 'TOR', // Toronto St. Patricks -> Toronto Maple Leafs
-};
-
-/** Official CDN assets — redirected through `LOGO_SUCCESSOR` where a team's own tricode has none. */
 export function teamLogoUrl(code: string | null | undefined): string | null {
   if (!code) return null;
   const first = String(code).split(/[,\s]+/)[0]?.trim().toUpperCase();
   if (!first) return null;
-  const resolved = LOGO_SUCCESSOR[first] ?? first;
-  return `https://assets.nhle.com/logos/nhl/svg/${resolved}_light.svg`;
+  return `https://assets.nhle.com/logos/nhl/svg/${first}_light.svg`;
 }
 
 export function headshotUrl(playerId: number, seasonId: number | string, team: string | null): string | null {
