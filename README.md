@@ -26,7 +26,7 @@ Pick any season back to 1917-18 and the standings redraw themselves in whatever 
 
 ### Today's games
 
-A scoreboard above the standings shows today's games, refreshed hourly straight from the NHL's live schedule feed — scores update automatically while games are in progress. Outside the season (the off-season, or a gap day with nothing scheduled, as above), it shows the next date that actually has games instead of leaving the section blank.
+A scoreboard above the standings shows today's games, refreshed every 15 minutes straight from the NHL's live schedule feed — scores update automatically while games are in progress. Outside the season (the off-season, or a gap day with nothing scheduled, as above), it shows the next date that actually has games instead of leaving the section blank.
 
 ## Tech stack
 

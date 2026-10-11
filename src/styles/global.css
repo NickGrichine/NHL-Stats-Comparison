@@ -938,6 +938,17 @@ tr.clinch-trophy th[scope='row'] {
   background: #d4af37;
 }
 
+.legend-cup {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.cup-trophy {
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: help;
+}
+
 /* ----------------------------------------------------------------- footer */
 
 .footer {

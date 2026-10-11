@@ -250,6 +250,46 @@ async function getDivisionMap(seasonId, standingsMeta) {
   return result;
 }
 
+const stanleyCupCache = new Map();
+
+/**
+ * That season's Stanley Cup Final winner, resolved from the playoff bracket
+ * rather than derived from the regular-season standings lookup — a team that
+ * goes on to win the Cup is identified by whoever actually won the Final
+ * series, independent of how (or whether) the standings/logo data names it.
+ * Cached by season for the run. A season with no Final yet — not started, or
+ * still in progress — returns null.
+ */
+async function getStanleyCupChampion(seasonId) {
+  if (stanleyCupCache.has(seasonId)) return stanleyCupCache.get(seasonId);
+
+  const year = seasonId % 10000;
+  let champion = null;
+  try {
+    const payload = await fetchJson(`${WEB_BASE}/playoff-bracket/${year}`, {
+      label: `playoff bracket ${seasonId}`,
+    });
+    const series = Array.isArray(payload?.series) ? payload.series : [];
+    const final = series.find((s) => /stanley cup final/i.test(s.seriesTitle ?? ''));
+    if (final?.winningTeamId) {
+      const winner =
+        final.topSeedTeam?.id === final.winningTeamId
+          ? final.topSeedTeam
+          : final.bottomSeedTeam?.id === final.winningTeamId
+            ? final.bottomSeedTeam
+            : null;
+      if (winner) {
+        champion = { abbrev: winner.abbrev ?? null, name: winner.name?.default ?? null };
+      }
+    }
+  } catch (error) {
+    console.warn(`  playoff bracket for ${seasonId} failed: ${error.message}`);
+  }
+
+  stanleyCupCache.set(seasonId, champion);
+  return champion;
+}
+
 /** teamId -> triCode, so team rows can carry an abbreviation and a logo. */
 async function loadTeamLookup() {
   const payload = await fetchJson(`${STATS_BASE}/team`, { label: 'team list' });
@@ -310,6 +350,12 @@ async function buildSlice(seasonId, kind, gameType, context) {
       record.clinch = info?.clinch ?? null;
       record.logo = info?.logo ?? null;
       record.logoBox = info?.logoBox ?? null;
+      const champion = context.cupChampion;
+      record.cupChampion = Boolean(
+        champion &&
+          ((record.abbrev && champion.abbrev && record.abbrev === champion.abbrev) ||
+            (typeof record.name === 'string' && champion.name && record.name === champion.name)),
+      );
     }
     return record;
   });
@@ -555,9 +601,12 @@ async function main() {
     try {
       const divisionMap =
         item.kind === 'teams' ? await getDivisionMap(item.season.id, standingsMeta) : null;
+      const cupChampion =
+        item.kind === 'teams' ? await getStanleyCupChampion(item.season.id) : null;
       const rows = await buildSlice(item.season.id, item.kind, item.gameType, {
         teamLookup,
         divisionMap,
+        cupChampion,
       });
       counts[item.season.id] ??= {};
       counts[item.season.id][`${item.kind}-${item.gameType}`] = rows ?? 0;

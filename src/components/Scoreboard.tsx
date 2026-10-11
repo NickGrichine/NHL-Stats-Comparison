@@ -70,9 +70,10 @@ function statusText(game: ApiGame): string {
  * Today's games, or — outside the season — whatever the NHL's own schedule
  * feed considers the next game day, since "today" would otherwise be empty.
  *
- * Refreshed hourly by the same workflow that maintains the season data, which
- * is what "real-time" honestly means for a static site: no manual step, never
- * more than an hour stale, and nothing to keep running.
+ * Refreshed every 15 minutes by the same workflow that maintains the season
+ * data, which is what "real-time" honestly means for a static site: no manual
+ * step, never more than about 15 minutes stale (scheduled runs can start a
+ * little late), and nothing to keep running.
  */
 export function Scoreboard() {
   const { data, loading, error } = useAsync(() => loadLive<Scoreboard>('scoreboard'), []);

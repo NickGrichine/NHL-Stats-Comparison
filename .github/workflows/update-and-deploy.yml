@@ -13,10 +13,11 @@ on:
         type: boolean
         default: false
   schedule:
-    # Full incremental refresh: current season stats, four times a day.
-    - cron: '0 */6 * * *'
-    # Scoreboard and standings only — cheap, so hourly.
-    - cron: '20 * * * *'
+    # Full incremental refresh: current season stats, hourly. Offset from the
+    # quarter-hour so it never lands on the same minute as a live-only run.
+    - cron: '7 * * * *'
+    # Scoreboard and standings only — cheap, so every 15 minutes.
+    - cron: '*/15 * * * *'
 
 permissions:
   contents: write
@@ -45,7 +46,7 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             echo "mode=--force" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "20 * * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "*/15 * * * *" ]; then
             echo "mode=--live-only" >> "$GITHUB_OUTPUT"
           else
             echo "mode=" >> "$GITHUB_OUTPUT"

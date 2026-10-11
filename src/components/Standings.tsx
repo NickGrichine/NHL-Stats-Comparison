@@ -127,7 +127,7 @@ function groupByConference(divisions: DivisionGroup[]): [string, DivisionGroup[]
 
 /** Zero out a prior season's row so its numbers can't be mistaken for real results. */
 function asUnplayed(row: StatRow): StatRow {
-  return { ...row, gp: 0, w: 0, l: 0, t: null, otl: 0, pts: 0, ptPct: 0, clinch: null };
+  return { ...row, gp: 0, w: 0, l: 0, t: null, otl: 0, pts: 0, ptPct: 0, clinch: null, cupChampion: false };
 }
 
 /** [1,2,3,4,5] -> [[1,2],[3,4],[5]] — two divisions per row, same shape as a conference section. */
@@ -263,6 +263,14 @@ function DivisionTable({ division, teams, showCaption }: { division: string; tea
                   <span className="team-cell">
                     <TeamLogo abbrev={abbrev} seasonLogo={seasonLogo} seasonLogoBox={seasonLogoBox} />
                     {teamShortName(abbrev) || String(row.name ?? '—')}
+                    {row.cupChampion === true && (
+                      <span className="tip cup-trophy" tabIndex={0} aria-label="Stanley Cup champion">
+                        🏆
+                        <span className="tip-bubble" role="tooltip">
+                          Stanley Cup champion
+                        </span>
+                      </span>
+                    )}
                   </span>
                 </th>
                 <td>{fmtInt(row.gp)}</td>
@@ -320,6 +328,7 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
   const hasPlayoffClinch = rows.some(
     (row) => typeof row.clinch === 'string' && CLINCH_CODES.has(row.clinch) && row.clinch !== 'p',
   );
+  const hasCupChampion = rows.some((row) => row.cupChampion === true);
 
   const seasonLabel = seasons[seasonIndex]?.label ?? 'This season';
   const showPlayoffLegend = notStarted || hasPlayoffClinch;
@@ -368,6 +377,11 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
             <span className="legend-item">
               <span className="legend-swatch clinch-trophy" /> Clinched President’s Trophy (best
               record in the league)
+            </span>
+          )}
+          {hasCupChampion && (
+            <span className="legend-item">
+              <span className="legend-cup" aria-hidden="true">🏆</span> Won the Stanley Cup
             </span>
           )}
         </p>

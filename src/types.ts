@@ -10,13 +10,14 @@ export type SeasonScope = number | 'career';
  * One decoded row: a player-season, a goalie-season or a team-season.
  *
  * The field names are ours, not the NHL's — see scripts/endpoints.mjs for the
- * mapping. Values are numbers, strings or null; null means "the league did not
- * track this stat that year", which is a meaningfully different thing from 0.
+ * mapping. Values are numbers, strings, booleans or null; null means "the
+ * league did not track this stat that year", which is a meaningfully
+ * different thing from 0 (or false).
  */
 export interface StatRow {
   id: number;
   name: string;
-  [key: string]: number | string | null;
+  [key: string]: number | string | boolean | null;
 }
 
 export interface SeasonMeta {
