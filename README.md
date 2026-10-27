@@ -1,6 +1,6 @@
 # NHL Stats Comparison 🏒
 
-Compare any NHL skater, goalie, or team from any season since 1917-18 — using raw stats or an era-adjusted scale on a radar chart and stats table.
+Compare any NHL skater, goalie, or team from any season since 1917-18 using raw stats or an era-adjusted scale on a radar chart and stats table.
 
 **[View the live site →](https://nickgrichine.github.io/NHL-Stats-Comparison/)**
 
