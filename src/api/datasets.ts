@@ -121,9 +121,8 @@ export function loadLive<T>(name: 'scoreboard' | 'standings'): Promise<LiveFile<
 }
 
 /**
- * The series that decided a season's Stanley Cup — the Final, plus the NHL
- * Final and Cup semifinal in the early years when non-NHL clubs contested
- * it. null when the season has none (no playoffs yet, or no file published).
+ * A season's Stanley Cup Final. null when the season has none (no playoffs
+ * yet, or no file published).
  */
 export function loadCup(season: number): Promise<CupFile | null> {
   return cached(`cup/${season}`, async () => {

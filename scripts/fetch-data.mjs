@@ -322,18 +322,18 @@ async function describeBracketTeam(team, wins) {
 }
 
 /**
- * `season/{id}/cup.json`: the series that decide the Stanley Cup — the Final
- * itself, and for the early years the "NHL Final" and any Cup semifinal too,
- * since the NHL champion did not automatically get the Cup then. Written once
- * per season; a season with no such series (no playoffs yet, the 2004-05
+ * `season/{id}/cup.json`: the Stanley Cup Final — and only the Final, so every
+ * season reads the same way. (The bracket also carries earlier Cup-titled
+ * rounds — "Stanley Cup Qualifiers", "Semifinals" — and, in the early years,
+ * an "NHL Final"; none of those belong here.) Written once per season; a
+ * season with no decided-or-underway Final (no playoffs yet, the 2004-05
  * lockout) writes nothing and the frontend treats a missing file as "none".
  */
 async function buildCupFile(seasonId) {
   const series = await getBracket(seasonId);
   const wanted = series
-    .filter((s) => /stanley cup|nhl final/i.test(s.seriesTitle ?? ''))
-    .filter((s) => s.topSeedTeam?.name?.default && s.bottomSeedTeam?.name?.default)
-    .sort((a, b) => (a.playoffRound ?? 0) - (b.playoffRound ?? 0));
+    .filter((s) => /^stanley cup final$/i.test((s.seriesTitle ?? '').trim()))
+    .filter((s) => s.topSeedTeam?.name?.default && s.bottomSeedTeam?.name?.default);
   if (wanted.length === 0) return false;
 
   const out = [];
@@ -574,16 +574,114 @@ async function saveManifest(seasons, counts) {
   });
 }
 
+/** The NHL's game days are Eastern-time calendar dates, whatever zone the runner is in. */
+const etDate = (date = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(date);
+
+const addDays = (isoDate, days) => {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+const gameCount = (day) => day.numberOfGames ?? day.games?.length ?? 0;
+const fetchWeek = (date) => fetchJson(`${WEB_BASE}/schedule/${date}`, { label: `schedule ${date}`, attempts: 3 });
+
+/** First date after `today` with games, following the schedule's own week-to-week links. */
+async function nextGameDate(today) {
+  let week = await fetchWeek(today);
+  for (let hop = 0; hop < 6 && week; hop += 1) {
+    const day = (week.gameWeek ?? []).find((d) => d.date > today && gameCount(d) > 0);
+    if (day) return day.date;
+    if (!week.nextStartDate) return null;
+    week = await fetchWeek(week.nextStartDate);
+  }
+  return null;
+}
+
+/** Last date before `today` with games. */
+async function previousGameDate(today) {
+  let week = await fetchWeek(addDays(today, -7));
+  for (let hop = 0; hop < 6 && week; hop += 1) {
+    const days = (week.gameWeek ?? []).filter((d) => d.date < today && gameCount(d) > 0);
+    if (days.length > 0) return days.at(-1).date;
+    if (!week.previousStartDate) return null;
+    week = await fetchWeek(week.previousStartDate);
+  }
+  return null;
+}
+
+/** Only what the scoreboard draws; the raw feed is far larger. */
+const slimGame = (g) => ({
+  id: g.id,
+  gameState: g.gameState,
+  startTimeUTC: g.startTimeUTC,
+  awayTeam: { abbrev: g.awayTeam?.abbrev, score: g.awayTeam?.score },
+  homeTeam: { abbrev: g.homeTeam?.abbrev, score: g.homeTeam?.score },
+  periodDescriptor: g.periodDescriptor,
+  clock: g.clock,
+});
+
+const NOT_STARTED = new Set(['FUT', 'PRE']);
+/** Postponed/cancelled games would show a stale start time and a score that never comes. */
+const isPlayable = (g) => !g.gameScheduleState || g.gameScheduleState === 'OK';
+
+async function gamesOn(date) {
+  const payload = await fetchJson(`${WEB_BASE}/score/${date}`, { label: `scores ${date}`, attempts: 3 });
+  return (Array.isArray(payload?.games) ? payload.games : []).filter(isPlayable);
+}
+
+/**
+ * The scoreboard, split by *status* rather than by date so it is always the
+ * same two things: `scores` — games that have started or finished — and
+ * `upcoming` — games that have not. Today's games are divided between the two
+ * as they progress; with nothing started today, scores fall back to the most
+ * recent game day, and with nothing left to play, upcoming falls back to the
+ * next game day.
+ *
+ * The NHL's own `score/now` is deliberately not used: it reports the most
+ * recent game day, which keeps pointing at yesterday's results for hours after
+ * today's schedule has begun.
+ */
+async function buildScoreboard() {
+  const today = etDate();
+  const todays = await gamesOn(today);
+  const started = todays.filter((g) => !NOT_STARTED.has(g.gameState));
+  const waiting = todays.filter((g) => NOT_STARTED.has(g.gameState));
+
+  let scores = started.length > 0 ? { date: today, games: started } : null;
+  if (!scores) {
+    const date = await previousGameDate(today);
+    if (date) {
+      const games = (await gamesOn(date)).filter((g) => !NOT_STARTED.has(g.gameState));
+      // Last June's Final is not "latest scores" in October.
+      if (games.length > 0 && date >= addDays(today, -14)) scores = { date, games };
+    }
+  }
+
+  let upcoming = waiting.length > 0 ? { date: today, games: waiting } : null;
+  if (!upcoming) {
+    const date = await nextGameDate(today);
+    if (date) {
+      const games = (await gamesOn(date)).filter((g) => NOT_STARTED.has(g.gameState));
+      if (games.length > 0) upcoming = { date, games };
+    }
+  }
+
+  const slim = (block) => (block ? { date: block.date, games: block.games.map(slimGame) } : null);
+  return { today, scores: slim(scores), upcoming: slim(upcoming) };
+}
+
 /** Today's games and the live standings. Cheap, so refreshed on every run. */
 async function buildLive() {
   const results = {};
 
-  for (const [name, url] of [
-    ['scoreboard', `${WEB_BASE}/score/now`],
-    ['standings', `${WEB_BASE}/standings/now`],
+  for (const [name, load] of [
+    ['scoreboard', buildScoreboard],
+    ['standings', () => fetchJson(`${WEB_BASE}/standings/now`, { label: 'standings', attempts: 3 })],
   ]) {
     try {
-      const payload = await fetchJson(url, { label: name, attempts: 3 });
+      const payload = await load();
       await writeJson(`live/${name}.json`, { fetchedAt: new Date().toISOString(), payload });
       results[name] = 'ok';
     } catch (error) {

@@ -312,7 +312,7 @@ function CupTeamLabel({ team, winner }: { team: CupTeam; winner: boolean }) {
 }
 
 /**
- * The series that decided the Cup. The early Cup was contested by the champions
+ * The Stanley Cup Final. The early Cup was contested by the champions
  * of leagues other than the NHL (the PCHA and WCHL) whose regular seasons the
  * NHL's data does not carry — so those clubs can't have a standings row, and
  * this is the one place they appear, with the crest they wore that year.
@@ -366,6 +366,10 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
   );
 
   const cup = useAsync(() => loadCup(season), [season]);
+  // Only the Final, whatever else the file holds — files published earlier
+  // also carry the Qualifiers/Semifinals/NHL Final, and are only rewritten on
+  // a forced refresh.
+  const cupFinal = (cup.data?.series ?? []).filter((entry) => /^stanley cup final$/i.test(entry.title.trim()));
 
   if (loading || (notStarted && priorSeasonId !== null && prior.loading)) {
     return <p className="muted">Loading standings…</p>;
@@ -428,7 +432,7 @@ function SeasonStandings({ season, seasons }: { season: number; seasons: Manifes
           </div>
         ))
       )}
-      {!notStarted && cup.data && cup.data.series.length > 0 && <CupPanel series={cup.data.series} />}
+      {!notStarted && cupFinal.length > 0 && <CupPanel series={cupFinal} />}
       {notStarted && (
         <p className="muted small standings-not-started">The {seasonLabel} season hasn’t started yet</p>
       )}

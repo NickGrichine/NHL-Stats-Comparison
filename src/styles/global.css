@@ -938,6 +938,10 @@ tr.clinch-trophy th[scope='row'] {
   background: #d4af37;
 }
 
+.game-group + .game-group {
+  margin-top: 20px;
+}
+
 .cup-panel {
   margin-top: 22px;
 }

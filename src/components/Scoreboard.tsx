@@ -18,9 +18,17 @@ interface ApiGame {
   clock?: { timeRemaining?: string; inIntermission?: boolean };
 }
 
+interface GameDay {
+  date: string;
+  games: ApiGame[];
+}
+
+/** Built by the data pipeline; see `buildScoreboard` in scripts/fetch-data.mjs. */
 interface Scoreboard {
-  currentDate?: string;
-  games?: ApiGame[];
+  /** The NHL's Eastern-time calendar date when the file was built. */
+  today?: string;
+  scores?: GameDay | null;
+  upcoming?: GameDay | null;
 }
 
 const LIVE_STATES = new Set(['LIVE', 'CRIT']);
@@ -66,9 +74,50 @@ function statusText(game: ApiGame): string {
   });
 }
 
+function GameCard({ game }: { game: ApiGame }) {
+  const live = LIVE_STATES.has(game.gameState ?? '');
+  return (
+    <article className={`game${live ? ' is-live' : ''}`} role="listitem">
+      <div className="game-row">
+        <span className="game-team">{game.awayTeam?.abbrev ?? '—'}</span>
+        <span className="game-score">{game.awayTeam?.score ?? ''}</span>
+      </div>
+      <div className="game-row">
+        <span className="game-team">{game.homeTeam?.abbrev ?? '—'}</span>
+        <span className="game-score">{game.homeTeam?.score ?? ''}</span>
+      </div>
+      <div className="game-status">
+        {live && <span className="live-dot" aria-label="In progress" />}
+        {statusText(game)}
+      </div>
+    </article>
+  );
+}
+
+function GameGroup({ title, day, today }: { title: string; day: GameDay; today: string | undefined }) {
+  const when = day.date === today ? 'Today' : formatDateLabel(day.date);
+  return (
+    <div className="game-group">
+      <h3 className="conference-heading">
+        {title} — {when}
+      </h3>
+      <div className="scoreboard" role="list">
+        {day.games.map((game) => (
+          <GameCard key={game.id} game={game} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Today's games, or — outside the season — whatever the NHL's own schedule
- * feed considers the next game day, since "today" would otherwise be empty.
+ * Two groups, always the same two things: the latest scores (games that have
+ * started or finished) and the upcoming games (ones that have not). Today's
+ * games move from one group to the other as they play; with nothing started
+ * today the scores are the last game day's, and with nothing left to play the
+ * upcoming games are the next game day's. The split is built by the data
+ * pipeline from the NHL's per-date schedule — not from `score/now`, which
+ * keeps reporting yesterday's results well into today's schedule.
  *
  * Refreshed every 15 minutes by the same workflow that maintains the season
  * data, which is what "real-time" honestly means for a static site: no manual
@@ -81,53 +130,29 @@ export function Scoreboard() {
   if (loading) {
     return (
       <section className="panel">
-        <h2>Today</h2>
-        <p className="muted">Loading today's games…</p>
+        <h2>Games</h2>
+        <p className="muted">Loading games…</p>
       </section>
     );
   }
   if (error || !data) return null;
 
-  const currentDate = data.payload?.currentDate;
-  const isToday = !currentDate || currentDate === data.fetchedAt.slice(0, 10);
-  const heading = isToday ? 'Today' : `Next games — ${formatDateLabel(currentDate)}`;
-
-  const games = data.payload?.games ?? [];
+  const { today, scores, upcoming } = data.payload ?? {};
+  const hasScores = !!scores && scores.games.length > 0;
+  const hasUpcoming = !!upcoming && upcoming.games.length > 0;
 
   return (
     <section className="panel">
-      <h2>{heading}</h2>
-      {!isToday && (
-        <p className="muted small">Nothing is on the schedule today — here's the next game day.</p>
-      )}
-      {games.length === 0 ? (
+      <h2>Games</h2>
+      {!hasScores && !hasUpcoming ? (
         <p className="muted">
           No games scheduled right now. The scoreboard fills in once the season starts.
         </p>
       ) : (
         <>
-          <div className="scoreboard" role="list">
-            {games.map((game) => {
-              const live = LIVE_STATES.has(game.gameState ?? '');
-              return (
-                <article key={game.id} className={`game${live ? ' is-live' : ''}`} role="listitem">
-                  <div className="game-row">
-                    <span className="game-team">{game.awayTeam?.abbrev ?? '—'}</span>
-                    <span className="game-score">{game.awayTeam?.score ?? ''}</span>
-                  </div>
-                  <div className="game-row">
-                    <span className="game-team">{game.homeTeam?.abbrev ?? '—'}</span>
-                    <span className="game-score">{game.homeTeam?.score ?? ''}</span>
-                  </div>
-                  <div className="game-status">
-                    {live && <span className="live-dot" aria-label="In progress" />}
-                    {statusText(game)}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          <p className="muted small">Scores updated {fmtRelative(data.fetchedAt)}.</p>
+          {hasUpcoming && <GameGroup title="Upcoming games" day={upcoming} today={today} />}
+          {hasScores && <GameGroup title="Latest scores" day={scores} today={today} />}
+          <p className="muted small">Updated {fmtRelative(data.fetchedAt)}.</p>
         </>
       )}
     </section>
